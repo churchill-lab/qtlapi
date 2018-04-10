@@ -293,16 +293,20 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
 
     # make sure nCores is appropriate  
     numCores = nvlInteger(nCores, 0)
+ 
+    # set covariates
+    if (isPheno(ds)) {
+        covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
+        covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
+        covar <- model.matrix(as.formula(covar_str), data = ds$pheno)[, -1, drop = FALSE]
+    } else {
+        covar <- ds$covar
 
-    # set covars
-    addcovar <- ds$covar
-
-    # to regress local genotype, add neareast marker to covariates
-    if (!isPheno(ds)) {
+        # to regress local genotype, add neareast marker to covariates
         if (toBoolean(regressLocal)) {
             mkr = as.character(markers[ds$annots$nearest.marker.id[idx], 1])
             chr = as.character(markers[ds$annots$nearest.marker.id[idx], 2])
-            addcovar <- cbind(addcovar, genoprobs[, chr][, -1, mkr])
+            covar <- cbind(covar, genoprobs[, chr][, -1, mkr])
         }
     }
 
@@ -310,7 +314,7 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
     temp <- (scan1(genoprobs = genoprobs,
                    kinship   = K,
                    pheno     = data[, idx, drop = F], 
-                   addcovar  = addcovar, 
+                   addcovar  = covar, 
                    cores     = numCores,
                    reml      = TRUE))
 
@@ -374,14 +378,18 @@ GetFoundercoefs <- function(dataset, id, chrom, regressLocal = FALSE,
     numCores = nvlInteger(nCores, 0)
     
     # set covariates
-    addcovar <- ds$covar
-    
-    # to regress local genotype, add neareast marker to covariates
-    if (!isPheno(ds)) {
+    if (isPheno(ds)) {
+        covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
+        covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
+        covar <- model.matrix(as.formula(covar_str), data = ds$pheno)[, -1, drop = FALSE]
+    } else {
+        covar <- ds$covar
+
+        # to regress local genotype, add neareast marker to covariates
         if (toBoolean(regressLocal)) {
             mkr = as.character(markers[ds$annots$nearest.marker.id[idx], 1])
             chr = as.character(markers[ds$annots$nearest.marker.id[idx], 2])
-            addcovar <- cbind(addcovar, genoprobs[, chr][, -1, mkr])
+            covar <- cbind(covar, genoprobs[, chr][, -1, mkr])
         }
     }
     
@@ -389,13 +397,13 @@ GetFoundercoefs <- function(dataset, id, chrom, regressLocal = FALSE,
         temp <- scan1blup(genoprobs = genoprobs[, chrom],
                           pheno     = data[, idx, drop = F],
                           kinship   = K[[chrom]],
-                          addcovar  = addcovar,
+                          addcovar  = covar,
                           cores     = numCores)
     } else {
         temp <- scan1coef(genoprobs = genoprobs[, chrom],
                           pheno     = data[, idx, drop = F],
                           kinship   = K[[chrom]],
-                          addcovar  = addcovar)
+                          addcovar  = covar)
     }
     
     if (toBoolean(center)) {
@@ -642,14 +650,17 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
 
     print(paste0("window.range=", window.range))
     
-
     colnames(window.snps)[c(1,3)] = c("snp", "pos")
     window.snps = index_snps(map = map, window.snps)
-    addcovar <- ds$covar
-    
-    # to regress local genotype, add neareast marker to covariates
-    # if (regress_local) 
-    # addcovar <- cbind(addcovar, genoprobs[,-1,annot.mrna$middle_point[idx]])
+
+    # set covariates
+    if (isPheno(ds)) {
+        covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
+        covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
+        covar <- model.matrix(as.formula(covar_str), data = ds$pheno)[, -1, drop = FALSE]
+    } else {
+        covar <- ds$covar
+    }
     
     # convert allele probs to SNP probs
     snppr <- genoprob_to_snpprob(genoprobs, window.snps)
@@ -659,13 +670,13 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
         outSnps <- scan1(pheno     = ds$pheno[, idx, drop=F], 
                          kinship   = K[[sel.chr]], 
                          genoprobs = snppr, 
-                         addcovar  = addcovar, 
+                         addcovar  = covar, 
                          cores     = numCores)
     } else {
         outSnps <- scan1(pheno     = ds$expr[, idx, drop=F], 
                          kinship   = K[[sel.chr]], 
                          genoprobs = snppr, 
-                         addcovar  = addcovar, 
+                         addcovar  = covar, 
                          cores     = numCores)
     }
     
@@ -734,6 +745,148 @@ GetLODPeaks <- function(dataset) {
         stop("invalid datatype")
     }
 }    
+
+
+#' Get the correlation.
+#' 
+#' @param dataset the dataset identifier
+#' @param id the identifier
+#' @param datasetCorrelate the dataset to correlate to
+#' @param maxItems maximum number of items
+#' 
+#' @return a data.frame with the following columns: 
+#' 
+GetCorrelation <- function(dataset, id, datasetCorrelate=NULL, maxItems=NULL) {
+    # get the dataset
+    ds <- GetDataSet(dataset)
+    if (is.null(ds)) {
+        stop(paste0("dataset not found: ", dataset))
+    }
+    
+    data <- NULL
+    
+    # get the index 
+    if (ds$datatype == "mRNA") {
+        idx <- which(ds$annots$gene_id == id)
+        data <- as.matrix(ds$expr) 
+    } else if (ds$datatype == "protein") {
+        idx <- which(ds$annots$protein_id == id)
+        data <- as.matrix(ds$expr) 
+    } else if (ds$datatype == "phenotype") {
+        idx <- which(colnames(ds$pheno[,ds$annots$is_pheno == TRUE]) == id)
+        data <- as.matrix(ds$pheno[,ds$annots$is_pheno == TRUE]) 
+    } else {
+        stop("invalid datatype")
+    }
+    
+    if (length(idx) == 0) {
+        stop(paste0("id not found: ", id))
+    }
+    
+    # get the dataset to correlate to
+    datasetCorrelate <- nvl(datasetCorrelate, dataset)
+    
+    dsCorrelate = GetDataSet(datasetCorrelate)
+    if (is.null(dsCorrelate)) {
+        stop(paste0("datasetCorrelate not found: ", dataset))
+    }
+    
+    dataCorrelate <- NULL
+    
+    if (dsCorrelate$datatype == "mRNA") {
+        dataCorrelate <- as.matrix(dsCorrelate$expr)
+    } else if (dsCorrelate$datatype == "protein") {
+        dataCorrelate <- as.matrix(dsCorrelate$expr)
+    } else if (dsCorrelate$datatype == "phenotype") {
+        dataCorrelate <- as.matrix(dsCorrelate$pheno[,dsCorrelate$annots$is_pheno == TRUE]) 
+    } else {
+        stop("invalid datatype for datasetCorrelate")
+    }
+
+    samples <- intersect(rownames(data), rownames(dataCorrelate))
+    data <- data[samples,]
+    dataCorrelate <- dataCorrelate[samples,]    
+    
+    pcor <- cor(data[,idx], dataCorrelate, use = "pair")
+    pcor <- pcor[1, order(abs(pcor), decreasing = TRUE)]
+    pcor <- pcor[1:nvlInteger(maxItems, length(pcor))]
+    
+    data.table(cor=pcor, id=names(pcor))    
+}
+
+
+#' Get the correlation.
+#' 
+#' @param dataset the dataset identifier
+#' @param id the identifier
+#' @param datasetCorrelate the dataset to correlate to
+#' @param idCorrelate the identifier from the correlate dataset
+#' 
+#' @return a data.frame with the following columns: 
+#' 
+GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
+    # get the dataset
+    ds <- GetDataSet(dataset)
+    if (is.null(ds)) {
+        stop(paste0("dataset not found: ", dataset))
+    }
+    
+    dsCorrelate <- GetDataSet(datasetCorrelate)
+    if (is.null(dsCorrelate)) {
+        stop(paste0("dataset not found: ", datasetCorrelate))
+    }
+    
+    # get the index 
+    if (ds$datatype == "mRNA") {
+        idx <- which(ds$annots$gene_id == id)
+        data <- as.matrix(ds$expr) 
+    } else if (ds$datatype == "protein") {
+        idx <- which(ds$annots$protein_id == id)
+        data <- as.matrix(ds$expr) 
+    } else if (ds$datatype == "phenotype") {
+        idx <- which(colnames(ds$pheno[,ds$annots$is_pheno == TRUE]) == id)
+        data <- as.matrix(ds$pheno[,ds$annots$is_pheno == TRUE]) 
+    } else {
+        stop("invalid datatype")
+    }
+    
+    if (length(idx) == 0) {
+        stop(paste0("id not found: ", id))
+    }
+    
+    # get the index of the correlate
+    if (dsCorrelate$datatype == "mRNA") {
+        idxCorrelate <- which(dsCorrelate$annots$gene_id == idCorrelate)
+        dataCorrelate <- as.matrix(dsCorrelate$expr) 
+    } else if (dsCorrelate$datatype == "protein") {
+        idxCorrelate <- which(dsCorrelate$annots$protein_id == idCorrelate)
+        dataCorrelate <- as.matrix(dsCorrelate$expr) 
+    } else if (dsCorrelate$datatype == "phenotype") {
+        idxCorrelate <- which(colnames(dsCorrelate$pheno[,dsCorrelate$annots$is_pheno == TRUE]) == idCorrelate)
+        dataCorrelate <- as.matrix(dsCorrelate$pheno[,dsCorrelate$annots$is_pheno == TRUE]) 
+    } else {
+        stop("invalid datatype")
+    }
+
+    if (length(idxCorrelate) == 0) {
+        stop(paste0("id not found: ", idCorrelate))
+    }
+    
+    samples <- intersect(rownames(data), rownames(dataCorrelate))
+    data <- data[samples,]
+    dataCorrelate <- dataCorrelate[samples,]
+ 
+    toReturn <- list(dataset          = dataset,
+                     id               = id,                    
+                     datasetCorrelate = datasetCorrelate,
+                     idCorrelate      = idCorrelate,
+                     data             = data.frame(mouse.id = rownames(data), 
+                                                   x        = data[,idx], 
+                                                   y        = dataCorrelate[,idxCorrelate]))
+
+    toReturn
+}
+
 
 # #############################################################################
 #
@@ -1319,6 +1472,91 @@ HttpLODPeaks <- function(req, res, dataset, expand=FALSE) {
 }
 
 
+#' Perform correlation on a phenotype or gene.
+#'
+#' @param req the request object
+#' @param res the response object
+#' @param dataset the dataset identifier
+#' @param id unique dentifier
+#' @param dataset the dataset identifier to correlate to
+#' @param maxItems maximum number of items to return
+#'
+#' @return JSON data
+#'
+#' Example of expand=FALSE result:
+#'     
+#' @serializer qtlJSON
+#* @get /correlation
+#* @post /correlation
+HTTPCorrelation <- function(req, res, dataset, id, datasetCorrelate=NULL, maxItems=NULL) {
+    # start the clock
+    ptm <- proc.time()
+    
+    result <- tryCatch(
+        {
+            ptm <- proc.time()
+            
+            correlation <- GetCorrelation(dataset          = dataset, 
+                                          id               = id,
+                                          datasetCorrelate = datasetCorrelate,
+                                          maxItems         = maxItems)
+
+            elapsed <- proc.time() - ptm
+            TrackTime(req, elapsed["elapsed"])
+            
+            list(result = correlation,
+                 time = elapsed["elapsed"])
+        },
+        error = function(cond) {
+            res$status <- 400
+            list(error=jsonlite::unbox(cond$message))
+        }
+    )
+
+    result
+}
 
 
+#' Perform correlation on a phenotype or gene.
+#'
+#' @param req the request object
+#' @param res the response object
+#' @param dataset the dataset identifier
+#' @param id unique dentifier
+#' @param datasetCorrelate the dataset identifier to correlate to
+#' @param idCorrelate id from correlate dataset
+#'
+#' @return JSON data
+#'
+#' Example of expand=FALSE result:
+#'     
+#' @serializer qtlJSON
+#* @get /correlationPlotData
+#* @post /correlationPlotData
+HTTPCorrelationPlotData <- function(req, res, dataset, id, datasetCorrelate, idCorrelate) {
+    # start the clock
+    ptm <- proc.time()
+    
+    result <- tryCatch(
+        {
+            ptm <- proc.time()
+            
+            correlation <- GetCorrelationPlotData(dataset          = dataset, 
+                                                  id               = id,
+                                                  datasetCorrelate = datasetCorrelate,
+                                                  idCorrelate      = idCorrelate)
 
+            elapsed <- proc.time() - ptm
+            TrackTime(req, elapsed["elapsed"])
+            
+            list(result = correlation,
+                 time = elapsed["elapsed"])
+        },
+        error = function(cond) {
+            res$status <- 400
+            list(error=jsonlite::unbox(cond$message))
+        }
+    )
+
+    result
+}
