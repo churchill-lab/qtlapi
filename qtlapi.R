@@ -503,30 +503,32 @@ GetExpression <- function(dataset, id) {
 #' @param dataset the dataset identifier
 #' @param id the identifier
 #' @param mid the marker identifier
+#' @param datasetMediate the dataset to mediate against
 #' 
 #' @return a data.frame with the following columns depending on datatype: 
 #'         mRNA = gene_id, symbol, chr, pos, LOD
 #'         protein = protein_id, gene_id, symbol, chr, pos, LOD
-#'         phenotype = NOT ALLOWED
+#'         phenotype = 
 #'         
-GetMediate <- function(dataset, id, mid) {
+GetMediate <- function(dataset, id, mid, datasetMediate=NULL) {
     # get the dataset
     ds = GetDataSet(dataset)
     if (is.null(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
-    
+
     # get the index 
     idx <- 0
     annot <- NULL
     if (ds$datatype == "mRNA") {
         idx <- which(ds$annots$gene_id == id)
-        annot <- ds$annots[,c("gene_id", "symbol", "chr")]
+        data <- ds$expr
     } else if (ds$datatype == "protein") {
         idx <- which(ds$annots$protein_id == id)
-        annot <- ds$annots[,c("protein_id", "gene_id", "symbol", "chr")]
+        data <- ds$expr
     } else if (ds$datatype == "phenotype") {
-        stop("invalid datatype")
+        idx <- which(ds$annots$data_name == id)
+        data <- ds$pheno
     } else {
         stop("invalid datatype")
     }
@@ -534,7 +536,25 @@ GetMediate <- function(dataset, id, mid) {
     if (length(idx) == 0) {
         stop(paste0("id not found: ", id))
     }
-    
+
+    # get the dataset we are mediating against
+    datasetMediate <- nvl(datasetMediate, dataset)
+    dsMediate = GetDataSet(datasetMediate)
+    if (is.null(ds)) {
+        stop(paste0("dataset not found: ", datasetMediate))
+    }
+
+    # get the annotations
+    if (dsMediate$datatype == "mRNA") {
+        annot <- dsMediate$annots[,c("gene_id", "symbol", "chr")]
+    } else if (dsMediate$datatype == "protein") {
+        annot <- dsMediate$annots[,c("protein_id", "gene_id", "symbol", "chr")]
+    } else if (dsMediate$datatype == "phenotype") {
+        stop("invalid datatype to mediate against")
+    } else {
+        stop("invalid datatype")
+    }
+        
     # get the marker index 
     mrkx <- which(markers$marker == mid)
     
@@ -543,20 +563,22 @@ GetMediate <- function(dataset, id, mid) {
     }
     
     chrTmp = as.character(markers[mrkx, 2])
-    annot$pos <- ds$annots$middle
+    annot$middle_point <- dsMediate$annots$middle
+
+
     
     # synchronize the samples
     # (list(genoprobs = genoprobs, data = data, K = K, covar = covar))
-    temp <- SynchronizeSamples(dataset   = ds, 
-                               genoprobs = genoprobs,
-                               K         = K)
+    #temp <- SynchronizeSamples(dataset   = ds, 
+    #                           genoprobs = genoprobs,
+    #                           K         = K)
 
     # perform the mediation
-    toReturn <- (mediation.scan(target     = temp$data[,idx],
-                                mediator   = temp$data,
+    toReturn <- (mediation.scan(target     = data[,idx, drop=FALSE],
+                                mediator   = dsMediate$expr,
                                 annotation = annot,
-                                covar      = temp$covar,
-                                qtl.geno   = temp$genoprobs[[chrTmp]][rownames(temp$data),,mid],
+                                covar      = dsMediate$covar,
+                                qtl.geno   = genoprobs[[chrTmp]][rownames(dsMediate$expr),,mid],
                                 verbose    = FALSE))
 
     rownames(toReturn) <- NULL
@@ -1269,6 +1291,7 @@ HttpExpression <- function(req, res, dataset, id) {
 #' @param dataset the dataset identifier
 #' @param id an identifier
 #' @param mid a marker identifier
+#' @param datasetMediate the dataset identifier to mediate against
 #' @param expand TRUE to expand the JSON, FALSE to condense
 #'
 #' @return JSON data
@@ -1297,14 +1320,15 @@ HttpExpression <- function(req, res, dataset, id) {
 #' @serializer qtlJSON
 #* @get /mediate
 #* @post /mediate
-HttpMediate <- function(req, res, dataset, id, mid, expand=FALSE) {
+HttpMediate <- function(req, res, dataset, id, mid, datasetMediate=NULL, expand=FALSE) {
     result <- tryCatch(
         {
             ptm <- proc.time()
             
-            mediation <- GetMediate(dataset = dataset, 
-                                    id      = id,
-                                    mid     = mid)
+            mediation <- GetMediate(dataset        = dataset, 
+                                    id             = id,
+                                    mid            = mid,
+                                    datasetMediate = datasetMediate)
             
             if (!(toBoolean(expand))) {
                 # by setting column names to NULL, the result will be a
