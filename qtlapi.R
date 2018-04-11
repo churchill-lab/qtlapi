@@ -811,7 +811,25 @@ GetCorrelation <- function(dataset, id, datasetCorrelate=NULL, maxItems=NULL) {
     pcor <- pcor[1, order(abs(pcor), decreasing = TRUE)]
     pcor <- pcor[1:nvlInteger(maxItems, length(pcor))]
     
-    data.table(cor=pcor, id=names(pcor))    
+    if (dsCorrelate$datatype == "mRNA") {
+        return (data.table(cor    = pcor, 
+                           id     = names(pcor), 
+                           symbol = dsCorrelate$annots$symbol[match(names(pcor), dsCorrelate$annots$gene_id)],
+                           chr    = dsCorrelate$annots$chr[match(names(pcor), dsCorrelate$annots$gene_id)],
+                           start  = dsCorrelate$annots$start[match(names(pcor), dsCorrelate$annots$gene_id)],
+                           end    = dsCorrelate$annots$end[match(names(pcor), dsCorrelate$annots$gene_id)]))
+    } else if (dsCorrelate$datatype == "protein") {
+        return (data.table(cor     = pcor, 
+                           id      = names(pcor), 
+                           gene_id = dsCorrelate$annots$gene_id[match(names(pcor), dsCorrelate$annots$protein_id)],
+                           symbol  = dsCorrelate$annots$symbol[match(names(pcor), dsCorrelate$annots$protein_id)],
+                           chr     = dsCorrelate$annots$chr[match(names(pcor), dsCorrelate$annots$protein_id)],
+                           start   = dsCorrelate$annots$start[match(names(pcor), dsCorrelate$annots$protein_id)],
+                           end     = dsCorrelate$annots$end[match(names(pcor), dsCorrelate$annots$protein_id)]))
+    } else if (dsCorrelate$datatype == "phenotype") {
+        return (data.table(cor    = pcor, 
+                           id     = names(pcor)))
+    }
 }
 
 
