@@ -564,8 +564,6 @@ GetMediate <- function(dataset, id, mid, datasetMediate=NULL) {
     
     chrTmp = as.character(markers[mrkx, 2])
     annot$middle_point <- dsMediate$annots$middle
-
-
     
     # synchronize the samples
     # (list(genoprobs = genoprobs, data = data, K = K, covar = covar))
@@ -915,14 +913,31 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
     samples <- intersect(rownames(data), rownames(dataCorrelate))
     data <- data[samples,]
     dataCorrelate <- dataCorrelate[samples,]
- 
+
+    # get the covar factors data
+    sampleInfo <- list()
+    dt <- list()
+    for (f in ds$covar.factors$column.name) {
+        stopifnot(!is.null(ds$samples[[f]]))
+        sampleInfo[[f]] <- ds$samples[samples,][[f]]
+
+        if (is.factor(ds$samples[[f]])) {
+            dt[[f]] <- mixedsort(levels(ds$samples[[f]]))
+        } else {
+            dt[[f]] <- mixedsort(unique(ds$samples[[f]]))
+        }
+    }
+
     toReturn <- list(dataset          = dataset,
                      id               = id,                    
                      datasetCorrelate = datasetCorrelate,
                      idCorrelate      = idCorrelate,
-                     data             = data.frame(mouse.id = rownames(data), 
-                                                   x        = data[,idx], 
-                                                   y        = dataCorrelate[,idxCorrelate]))
+                     dataTypes        = dt,
+                     data             = data.frame(mouse.id        = rownames(data), 
+                                                   x               = data[,idx], 
+                                                   y               = dataCorrelate[,idxCorrelate],
+                                                   sampleInfo,
+                                                   stringsAsFactors = FALSE))
 
     toReturn
 }
