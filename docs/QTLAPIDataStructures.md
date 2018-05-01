@@ -16,7 +16,7 @@ The following sections try to explain what each element is required and which is
 
 The following elements should be in the `RData` file.  
 
-* [`ensembl.version`](#ensembl_version) - string specifying the Ensembl version
+* [`ensembl.version`](#ensembl_version) - number specifying the Ensembl version
 * [`genoprobs`](#genoprobs) - the genotype probabilities 
 * [`K`](#kinship) - the kinship matrix
 * [`map`](#map) - list of one element per chromosome, with the genomic position of each marker
@@ -28,9 +28,9 @@ The following elements should be in the `RData` file.
 
 #### `ensembl.version`<a name="ensembl_version"></a> *OPTIONAL*
 
-- **R data type:** character
+- **R data type:** numeric
 
-- **Description:** This is the Ensembl information. For example, "90"
+- **Description:** This is the Ensembl information. For example, 90
 
 Please see the documentation at [Ensembl](http://www.ensembl.org/info/website/archives/assembly.html) for build information.
 
@@ -106,7 +106,6 @@ The following elements should be in each **mRNA** and **protein** `dataset.*` [l
 * [`covar.factors`](#mrna_covar_factors) - specific information about the covars
 * [`datatype`](#mrna_datatype) - type of data, either **mRNA** or **protein**
 * [`display.name`](#mrna_display_name) - simple display name for the viewer
-* [`ensembl.version`](#mrna_ensembl_version) - version of Ensembl used for annot locations
 * [`expr`](#mrna_expr) - expression data, samples (rows) x mrna (columns)
 * [`lod.peaks`](#mrna_lodpeaks) - lod peaks over a certain threshold
 * [`raw`](#mrna_raw) - matrix of raw mrna data (counts out of [EMASE](http://churchill-lab.github.io/emase/))
@@ -177,16 +176,6 @@ The following column names must be present:
 
 ------------
 
-#### `ensembl.version`<a name="mrna_ensembl_version"></a> *OPTIONAL*
-
-- **R data type:** numeric
-
-- **Description:** Ensembl version number used in annotations
-
-Please see the documentation at [Ensembl](http://www.ensembl.org/info/website/archives/assembly.html) for build information.
-
-------------
-
 #### `expr`<a name="mrna_expr"></a> *REQUIRED*
 
 - **R data type:** [matrix](http://www.r-tutor.com/r-introduction/matrix)
@@ -229,13 +218,13 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `id` | character | Mouse ID
+| `mouse.id` | character | Mouse ID
 
-`rownames` must also match the names of the `id` column
+`rownames` must also match the names of the `mouse.id` column
 
 Extra columns can be included, and will be rendered in the viewer. For example,
 
-> | id | Sex | Age | Description |
+> | mouse.id | Sex | Age | Description |
 > | ----------- | ---------- | ---------- | ---------- |
 > | DO-001 | F | 12 | some description
 > | DO-002 | F | 14 | another description
@@ -341,16 +330,17 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `id` | character | Mouse ID
+| `mouse.id` | character | Mouse ID
 
-`rownames` must also match the names of the `id` column
+`rownames` must also match the names of the `mouse.id` column
 
 Extra columns can be included, and will be rendered in the viewer. For example,
 
-> | id | Sex | Age | Description |
+> | mouse.id | Sex | Age | Description |
 > | ----------- | ---------- | ---------- | ---------- |
 > | DO-001 | F | 12 | some description
 > | DO-002 | F | 14 | another description
 > | DO-203 | M | 1 | yet another description
 
 ------------
+
