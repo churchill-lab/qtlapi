@@ -298,7 +298,7 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
     if (isPheno(ds)) {
         covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
         covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
-        covar <- model.matrix(as.formula(covar_str), data = ds$pheno)[, -1, drop = FALSE]
+        covar <- model.matrix(as.formula(covar_str), data = ds$samples)[, -1, drop = FALSE]
     } else {
         covar <- ds$covar
 
