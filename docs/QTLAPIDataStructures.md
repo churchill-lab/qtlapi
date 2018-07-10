@@ -106,7 +106,8 @@ The following elements should be in each **mRNA** and **protein** `dataset.*` [l
 * [`covar.factors`](#mrna_covar_factors) - specific information about the covars
 * [`datatype`](#mrna_datatype) - type of data, either **mRNA** or **protein**
 * [`display.name`](#mrna_display_name) - simple display name for the viewer
-* [`expr`](#mrna_expr) - expression data, samples (rows) x mrna (columns)
+* [`rankz`](#mrna_expr) - rankZ normalized expression data, samples (rows) x mrna (columns)
+* [`norm`](#mrna_norm) - normalized (by method other than rankZ) expression data, samples (rows) x mrna (columns)
 * [`lod.peaks`](#mrna_lodpeaks) - lod peaks over a certain threshold
 * [`raw`](#mrna_raw) - matrix of raw mrna data (counts out of [EMASE](http://churchill-lab.github.io/emase/))
 * [`samples`](#mrna_samples) - sample annotations
@@ -177,6 +178,14 @@ The following column names must be present:
 ------------
 
 #### `expr`<a name="mrna_expr"></a> *REQUIRED*
+
+- **R data type:** [matrix](http://www.r-tutor.com/r-introduction/matrix)
+
+- **Description:** expression data, [`samples`](#mrna_samples) (rows) x [`annots`](#mrna_annots) (columns)
+
+------------
+
+#### `norm`<a name="mrna_norm"></a> *OPTIONAL*
 
 - **R data type:** [matrix](http://www.r-tutor.com/r-introduction/matrix)
 
