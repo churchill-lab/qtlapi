@@ -159,7 +159,7 @@ The following column names must be present:
 | `column.name` | character | column name in [`samples`](#mrna_samples)
 | `display.name` | character | display name for the viewer
 | `int.covar` | character | either `factor`, `numeric` or NA
-| `lod.peaks` | character | name of the corresponding element in [`lod.peaks`](#mrna_lodpeak)
+| `lod.peaks` | character | name of the corresponding element in [`lod.peaks`](#mrna_lodpeaks)
 | `covar.name` | character | name of the corresponding column in [`covar`](#mrna_covar)
 
 ------------
