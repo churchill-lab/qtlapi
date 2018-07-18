@@ -156,10 +156,11 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `column.name` | character | column name in [`covar`](#mrna_covar)
+| `column.name` | character | column name in [`samples`](#mrna_samples)
 | `display.name` | character | display name for the viewer
-| `int.covar` | character | string, either `factor`, `numeric` or NA
-| `lod.peaks` | character | string, name of the corresponding element in lod.peaks
+| `int.covar` | character | either `factor`, `numeric` or NA
+| `lod.peaks` | character | name of the corresponding element in [`lod.peaks`](#mrna_lodpeak)
+| `covar.name` | character | name of the corresponding column in [`covar`](#mrna_covar)
 
 ------------
 
@@ -288,10 +289,11 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `column_name` | character | column name in [`covar`](#pheno_covar)
+| `column_name` | character | column name in [`samples`](#pheno_samples)
 | `display_name` | character | display name for the viewer
 | `int.covar` | character | string, either `factor`, `numeric` or NA
 | `lod.peaks` | character | string, name of the corresponding element in [`lod.peaks`](#pheno_lodpeaks)
+| `covar.name` | character | name of the corresponding column in [`covar`](#pheno_covar)
 
 ------------
 
