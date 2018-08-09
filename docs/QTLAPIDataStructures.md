@@ -156,8 +156,11 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `column.name` | character | column name in [`covar`](#mrna_covar)
+| `column.name` | character | column name in [`samples`](#mrna_samples)
 | `display.name` | character | display name for the viewer
+| `int.covar` | character | either `factor`, `numeric` or NA
+| `lod.peaks` | character | name of the corresponding element in [`lod.peaks`](#mrna_lodpeaks)
+| `covar.name` | character | name of the corresponding column in [`covar`](#mrna_covar)
 
 ------------
 
@@ -195,11 +198,13 @@ The following column names must be present:
 
 #### `lod.peaks`<a name="mrna_lodpeaks"></a> *REQUIRED*
 
-- **R data type:** [data.frame](http://www.r-tutor.com/r-introduction/data-frame)
+- **R data type:** [list](http://www.r-tutor.com/r-introduction/list)
 
-- **Description:** peak lod scores over a certain threshold
+- **Description:** list of peak lod scores above a certain threshold
 
-The following column names must be present:
+Each list element is a [data.frame](http://www.r-tutor.com/r-introduction/data.frame). The list elements must be named. The additive scans are named `additive`. Interactive scans (i.e. sex X QTL interaction) are named `sex_int` and must match the `lod.peaks` column in [`covar.factors`](#mrna_covar_factors).
+
+The following column names must be present in each data.frame:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
@@ -284,8 +289,11 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `column_name` | character | column name in [`covar`](#mrna_covar)
+| `column_name` | character | column name in [`samples`](#pheno_samples)
 | `display_name` | character | display name for the viewer
+| `int.covar` | character | string, either `factor`, `numeric` or NA
+| `lod.peaks` | character | string, name of the corresponding element in [`lod.peaks`](#pheno_lodpeaks)
+| `covar.name` | character | name of the corresponding column in [`covar`](#pheno_covar)
 
 ------------
 
@@ -307,11 +315,13 @@ The following column names must be present:
 
 #### `lod.peaks`<a name="pheno_lodpeaks"></a> *REQUIRED*
 
-- **R data type:** [data.frame](http://www.r-tutor.com/r-introduction/data-frame)
+- **R data type:** [list](http://www.r-tutor.com/r-introduction/list)
 
-- **Description:** peak lod scores over a certain threshold
+- **Description:** list of peak lod scores above a certain threshold
 
-The following column names must be present:
+Each list element is a [data.frame](http://www.r-tutor.com/r-introduction/data.frame). The list elements must be named. The additive scans are named `additive`. Interactive scans (i.e. sex X QTL interaction) are named `sex_int` and must match the `lod.peaks` column in [`covar.factors`](#pheno_covar_factors)..
+
+The following column names must be present in each data.frame:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
@@ -352,4 +362,3 @@ Extra columns can be included, and will be rendered in the viewer. For example,
 > | DO-203 | M | 1 | yet another description
 
 ------------
-
