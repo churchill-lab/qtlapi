@@ -54,6 +54,10 @@ if (debug) {
 #
 # #############################################################################
 
+
+#' Opposite of %in%  
+`%not in%` <- function (x, table) match(x, table, nomatch = 0L) == 0L
+
 #' Check value to see if it could be a boolean.  
 #' 
 #' Acceptable TRUE boolean values are TRUE, 1, "T", "TRUE", "YES", "Y", "1"
@@ -147,7 +151,7 @@ SynchronizeSamples <- function(dataset, genoprobs, K) {
     if (isPheno(dataset)) {
         temp <- dataset$pheno        
     } else {
-        temp <- dataset$expr
+        temp <- dataset$rankz
     }
     
     samples <- intersect(rownames(temp), rownames(genoprobs[[1]]))
@@ -203,6 +207,22 @@ GetDataSet <- function(id) {
     NULL
 }
 
+#' Get the interactive covariates for a dataset.
+#' 
+#' @param id the dataset id as a string
+#' 
+#' @return the interactive covariates
+#' 
+GetIntCovar <- function(dataset) {
+    # get the dataset
+    ds = GetDataSet(dataset)
+
+    if (is.null(ds)) {
+        stop(paste0("dataset not found: ", dataset))
+    }
+
+    ds$covar.factors[which(!is.na(ds$covar.factors$covar.name)),]$column.name
+}
 
 #' Get all "dataset.*" information.
 #' 
@@ -241,12 +261,27 @@ GetDatasetInfo <- function() {
                                       useCovar     = annotSubset$use_covar)
         }
         
+        # get the LOD peaks for each covarint
+        #peaks <- NULL
+        #additivePeaks <- GetLODPeaks(d)
+        #colnames(additivePeaks) <- NULL
+        #peaks <- list(additive = additivePeaks)
+        #intcovars <- ds$covar.factors[which(!is.na(ds$covar.factors$covar.name)),]$column.name
+
+        #for (ic in intcovars) {
+        #    icPeaks <- GetLODPeaks(d, ic)
+        #    colnames(icPeaks) <- NULL
+        #    peaks <- c(list(icPeaks), peaks)
+        #    names(peaks)[1] = ic
+        #}
+        
         dsInfo <- list(id             = d, 
                        annotations    = annotations, 
                        displayName    = nvl(ds$display.name, d), 
                        dataType       = ds$datatype, 
                        ensemblVersion = nvl(ds$ensembl.version, ''),
                        covarFactors   = ds$covar.factors)
+                       #lodPeaks       = peaks)
 
         ret <- c(ret, list(dsInfo))
     }
@@ -261,12 +296,13 @@ GetDatasetInfo <- function() {
 #' 
 #' @param dataset the dataset identifier
 #' @param id the identifier
+#' @param intcovar the interactive covariate
 #' @param regressLocal TRUE to regress on local genotype, FALSE to not
 #' @param nCores number of cores to use (0=ALL)
 #' 
 #' @return a data.table with the following columns: id, chr, pos, lod
 #' 
-GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
+GetLODScan <- function(dataset, id, intcovar=NULL, regressLocal=FALSE, nCores=0) {
     # get the dataset
     ds = GetDataSet(dataset)
     if (is.null(ds)) {
@@ -276,10 +312,10 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
     # get the index and data based 
     if (ds$datatype == "mRNA") {
         idx <- which(ds$annots$gene_id == id)
-        data <- ds$expr
+        data <- ds$rankz
     } else if (ds$datatype == "protein") {
         idx <- which(ds$annots$protein_id == id)
-        data <- ds$expr
+        data <- ds$rankz
     } else if (ds$datatype == "phenotype") {
         idx <- which(ds$annots$data_name == id)
         data <- ds$pheno
@@ -310,13 +346,26 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
         }
     }
 
+    interactiveCovar <- NULL
+
     # perform the scan using QTL2
+    if (!is.null(intcovar)) {
+        if (intcovar %not in% ds$covar.factors$column.name) {
+            stop(sprintf("covar: %s not found in %s$covar.factors", intcovar, dataset))
+        }
+
+        n <- ds$covar.factors[ds$covar.factors$column.name == intcovar,]
+        interactiveCovar <- ds$covar[, n$covar.name, drop = FALSE]
+    }
+
     temp <- (scan1(genoprobs = genoprobs,
-                   kinship   = K,
-                   pheno     = data[, idx, drop = F], 
-                   addcovar  = covar, 
-                   cores     = numCores,
-                   reml      = TRUE))
+                    kinship   = K,
+                    pheno     = data[, idx, drop = F], 
+                    addcovar  = covar, 
+                    intcovar  = interactiveCovar,
+                    cores     = numCores,
+                    reml      = TRUE))
+
 
     # construct a 2 dimensional array of data
     tempDT <- data.table(id  = markers$marker, 
@@ -331,11 +380,131 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
 }
 
 
+#' Perform the LOD scan for each "value" of the interactive covariate.
+#' 
+#' @param dataset the dataset identifier
+#' @param id the identifier
+#' @param intcovar the interactive covariate
+#' @param chrom the chromosome
+#' @param nCores number of cores to use (0=ALL)
+#' 
+#' @return a data.table with the following columns: id, chr, pos, lod
+#' 
+GetLODScanBySample <- function(dataset, id, intcovar, chrom=NULL, nCores=0) {
+    # get the dataset
+    ds = GetDataSet(dataset)
+    if (is.null(ds)) {
+        stop(paste0("dataset not found: ", dataset))
+    }
+
+    # get the index and data based 
+    if (ds$datatype == "mRNA") {
+        idx <- which(ds$annots$gene_id == id)
+        data <- ds$rankz
+    } else if (ds$datatype == "protein") {
+        idx <- which(ds$annots$protein_id == id)
+        data <- ds$rankz
+    } else if (ds$datatype == "phenotype") {
+        idx <- which(ds$annots$data_name == id)
+        data <- ds$pheno
+    } else {
+        stop("invalid datatype")
+    }
+    
+    if (length(idx) == 0) {
+        stop(paste0("id not found: ", id))
+    }
+
+    # make sure nCores is appropriate  
+    numCores = nvlInteger(nCores, 0)
+ 
+    # set covariates
+    if (isPheno(ds)) {
+        covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
+        covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
+        covar <- model.matrix(as.formula(covar_str), data = ds$samples)[, -1, drop = FALSE]
+    } else {
+        covar <- ds$covar
+
+        # to regress local genotype, add neareast marker to covariates
+        #if (toBoolean(regressLocal)) {
+        #    mkr = as.character(markers[ds$annots$nearest.marker.id[idx], 1])
+        #    chr = as.character(markers[ds$annots$nearest.marker.id[idx], 2])
+        #    covar <- cbind(covar, genoprobs[, chr][, -1, mkr])
+        #}
+    }
+
+    t <- list()
+    for (f in ds$covar.factors$column.name) {
+        stopifnot(!is.null(ds$samples[[f]]))
+        if (is.factor(ds$samples[[f]])) {
+            t[[f]] <- mixedsort(levels(ds$samples[[f]]))
+        } else {
+            t[[f]] <- mixedsort(unique(ds$samples[[f]]))
+        }
+    }
+
+    categories <- ds$samples[, intcovar, drop=FALSE]
+
+    ret <- list()
+
+    # get values for each category
+    for (x in t[[intcovar]]) {
+        samples_idx <- rownames(categories)[categories[, 1] == x]
+
+        if (is.null(chrom)) {
+            temp <- (scan1(genoprobs = genoprobs[samples_idx, ],
+                           kinship   = K[samples_idx, samples_idx],
+                           pheno     = data[samples_idx, idx, drop = F],
+                           addcovar  = covar, 
+                           cores     = numCores,
+                           reml      = TRUE))
+
+
+            # construct a 2 dimensional array of data
+            tempDT <- data.table(id  = markers$marker, 
+                                 chr = markers$chr, 
+                                 pos = markers$pos, 
+                                 temp)
+
+            # setting colnames to NULL removes the names in the JSON and return an array
+            colnames(tempDT)[4] <- "lod"
+
+            ret[[x]] <- tempDT
+        } else {
+            temp <- (scan1(genoprobs = genoprobs[samples_idx, chrom],
+                           kinship   = K[[chrom]][samples_idx, samples_idx],                           
+                           pheno     = data[samples_idx, idx, drop = F],
+                           addcovar  = covar, 
+                           cores     = numCores,
+                           reml      = TRUE))
+
+            tempMarkers <- markers[which(markers$chr == chrom), ]
+
+            # construct a 2 dimensional array of data
+            tempDT <- data.table(id  = tempMarkers$marker, 
+                                 chr = tempMarkers$chr, 
+                                 pos = tempMarkers$pos, 
+                                 temp)
+
+            # setting colnames to NULL removes the names in the JSON and return an array
+            colnames(tempDT)[4] <- "lod"
+
+            ret[[x]] <- tempDT
+        }
+    
+    }
+
+    ret
+}
+
+
 #' Get the founder coefficients.
 #' 
 #' @param dataset the dataset identifier
 #' @param id the identifier
 #' @param chrom the chromosome
+#' @param intcovar the interactive covariate
 #' @param regressLocal TRUE to regress on local genotype, FALSE to not
 #' @param blup whether or not to perform BLUP
 #' @param center whether or not to center the data
@@ -343,7 +512,7 @@ GetLODScan <- function(dataset, id, regressLocal=FALSE, nCores=0) {
 #' 
 #' @return a data.table with the following columns: id, chr, pos, and A-H
 #' 
-GetFoundercoefs <- function(dataset, id, chrom, regressLocal = FALSE, 
+GetFoundercoefs <- function(dataset, id, chrom, intcovar=NULL, regressLocal = FALSE, 
                             blup = FALSE, center = TRUE, nCores = 0) {
     # get the dataset
     ds = GetDataSet(dataset)
@@ -354,10 +523,10 @@ GetFoundercoefs <- function(dataset, id, chrom, regressLocal = FALSE,
     # get the index 
     if (ds$datatype == "mRNA") {
         idx <- which(ds$annots$gene_id == id)
-        data <- ds$expr
+        data <- ds$rankz
     } else if (ds$datatype == "protein") {
         idx <- which(ds$annots$protein_id == id)
-        data <- ds$expr
+        data <- ds$rankz
     } else if (ds$datatype == "phenotype") {
         idx <- which(ds$annots$data_name == id)
         data <- ds$pheno
@@ -392,29 +561,79 @@ GetFoundercoefs <- function(dataset, id, chrom, regressLocal = FALSE,
             covar <- cbind(covar, genoprobs[, chr][, -1, mkr])
         }
     }
+
+    ret <- list()
     
-    if (toBoolean(blup)) {
-        temp <- scan1blup(genoprobs = genoprobs[, chrom],
-                          pheno     = data[, idx, drop = F],
-                          kinship   = K[[chrom]],
-                          addcovar  = covar,
-                          cores     = numCores)
+    if (is.null(intcovar)) {
+        if (toBoolean(blup)) {
+            temp <- scan1blup(genoprobs = genoprobs[, chrom],
+                              pheno     = data[, idx, drop = F],
+                              kinship   = K[[chrom]],
+                              addcovar  = covar,
+                              cores     = numCores)
+        } else {
+            temp <- scan1coef(genoprobs = genoprobs[, chrom],
+                              pheno     = data[, idx, drop = F],
+                              kinship   = K[[chrom]],
+                              addcovar  = covar)
+        }
+    
+        if (toBoolean(center)) {
+            temp[, LETTERS[1:8]] <- 
+                temp[, LETTERS[1:8]] - rowMeans(temp[, LETTERS[1:8]], na.rm = TRUE)
+        }
+
+        ret[['additive']] <- data.table(id = names(map[[chrom]]), 
+                                        chr = chrom, 
+                                        pos = map[[chrom]], 
+                                        temp[,LETTERS[1:8]])
     } else {
-        temp <- scan1coef(genoprobs = genoprobs[, chrom],
-                          pheno     = data[, idx, drop = F],
-                          kinship   = K[[chrom]],
-                          addcovar  = covar)
+        if (intcovar %not in% ds$covar.factors$column.name) {
+            stop(sprintf("covar: %s not found in %s$covar.factors", intcovar, dataset))
+        }
+
+        t <- list()
+        for (f in ds$covar.factors$column.name) {
+            stopifnot(!is.null(ds$samples[[f]]))
+            if (is.factor(ds$samples[[f]])) {
+                t[[f]] <- mixedsort(levels(ds$samples[[f]]))
+            } else {
+                t[[f]] <- mixedsort(unique(ds$samples[[f]]))
+            }
+        }
+
+        categories <- ds$samples[, intcovar, drop=FALSE]
+
+        # get values for each category
+        for (x in t[[intcovar]]) {
+            samples_idx <- rownames(categories)[categories[, 1] == x]
+
+            if (toBoolean(blup)) {
+                temp <- scan1blup(genoprobs = genoprobs[samples_idx, chrom],
+                                  pheno     = data[samples_idx, idx, drop = F],
+                                  kinship   = K[[chrom]][samples_idx, samples_idx],
+                                  addcovar  = covar[samples_idx, , drop=FALSE],
+                                  cores     = numCores)
+            } else {
+                temp <- scan1coef(genoprobs = genoprobs[samples_idx, chrom],
+                                  pheno     = data[samples_idx, idx, drop = F],
+                                  kinship   = K[[chrom]][samples_idx, samples_idx],
+                                  addcovar  = covar[samples_idx, , drop=FALSE])
+            }
+        
+            if (toBoolean(center)) {
+                temp[, LETTERS[1:8]] <- 
+                    temp[, LETTERS[1:8]] - rowMeans(temp[, LETTERS[1:8]], na.rm = TRUE)
+            }
+
+            ret[[x]] <- data.table(id = names(map[[chrom]]), 
+                                   chr = chrom, 
+                                   pos = map[[chrom]], 
+                                   temp[,LETTERS[1:8]])
+        }
     }
     
-    if (toBoolean(center)) {
-        temp[, LETTERS[1:8]] <- 
-            temp[, LETTERS[1:8]] - rowMeans(temp[, LETTERS[1:8]], na.rm = TRUE)
-    }
-    
-    data.table(id = names(map[[chrom]]), 
-               chr = chrom, 
-               pos = map[[chrom]], 
-               temp[,LETTERS[1:8]])
+    ret
 }
 
 
@@ -484,12 +703,12 @@ GetExpression <- function(dataset, id) {
     
     if (isPheno(ds)) {
         output <- cbind(ds$samples, expression=ds$pheno[, idx])
-        colnames(output)[1] <- ("mouse_id")
     } else {
-        # simple to get the expression data and tack on
-        output <- cbind(ds$samples, expression=ds$expr[, idx])
-        colnames(output)[1] <- ("mouse_id")
+        output <- cbind(ds$samples, expression=ds$rankz[, idx])
     }
+
+    # rename 'mouse.id' to be 'mouse_id' for easier JSON with JavaScript
+    colnames(output)[colnames(output)=="mouse.id"] <- "mouse_id"
     
     # elimate the _row column down line for JSON
     rownames(output) <- NULL
@@ -522,10 +741,10 @@ GetMediate <- function(dataset, id, mid, datasetMediate=NULL) {
     annot <- NULL
     if (ds$datatype == "mRNA") {
         idx <- which(ds$annots$gene_id == id)
-        data <- ds$expr
+        data <- ds$rankz
     } else if (ds$datatype == "protein") {
         idx <- which(ds$annots$protein_id == id)
-        data <- ds$expr
+        data <- ds$rankz
     } else if (ds$datatype == "phenotype") {
         idx <- which(ds$annots$data_name == id)
         data <- ds$pheno
@@ -573,10 +792,10 @@ GetMediate <- function(dataset, id, mid, datasetMediate=NULL) {
 
     # perform the mediation
     toReturn <- (mediation.scan(target     = data[,idx, drop=FALSE],
-                                mediator   = dsMediate$expr,
+                                mediator   = dsMediate$rankz,
                                 annotation = annot,
                                 covar      = dsMediate$covar,
-                                qtl.geno   = genoprobs[[chrTmp]][rownames(dsMediate$expr),,mid],
+                                qtl.geno   = genoprobs[[chrTmp]][rownames(dsMediate$rankz),,mid],
                                 verbose    = FALSE))
 
     rownames(toReturn) <- NULL
@@ -645,7 +864,6 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
 
     # extract SNPs from the database
     while (!haveSNPS) {
-        print(paste0("window.range=", window.range))
         myDB <- src_sqlite(db.file, create=FALSE)
         window.snps <- tbl(myDB, sql("SELECT * FROM snps")) %>%
             filter(chr==sel.chr, 
@@ -668,8 +886,6 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
         }
     }
 
-    print(paste0("window.range=", window.range))
-    
     colnames(window.snps)[c(1,3)] = c("snp", "pos")
     window.snps = index_snps(map = map, window.snps)
 
@@ -693,7 +909,7 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
                          addcovar  = covar, 
                          cores     = numCores)
     } else {
-        outSnps <- scan1(pheno     = ds$expr[, idx, drop=F], 
+        outSnps <- scan1(pheno     = ds$rankz[, idx, drop=F], 
                          kinship   = K[[sel.chr]], 
                          genoprobs = snppr, 
                          addcovar  = covar, 
@@ -713,23 +929,44 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
 #' Get the LOD peaks
 #' 
 #' @param dataset the dataset identifier
+#' @param intcovar the interactive covarariate, if NULL than 
+#' the additive is used
 #' 
 #' @return a data.frame with the following columns: marker, chr, pos
 #' and depending upons dataset$dataType the following columns:
 #' mRNA = gene_id, symbol, gene_chrom, middle, lod
-#' protein = 
+#' protein = protein_id, gene_id, symbol, gene_chrom, middle, lod
 #' phenotype = data_name, short_name, description, lod
 #' 
-GetLODPeaks <- function(dataset) {
+GetLODPeaks <- function(dataset, intcovar=NULL) {
     # get the dataset
     ds = GetDataSet(dataset)
+
     if (is.null(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
+    peaks <- NULL
+
+    if (is.null(intcovar)) {
+        peaks <- ds$lod.peaks$additive
+    } else {
+        # find the covar and get the name of the lod peaks
+        if (intcovar %in% ds$covar.factors$column.name) {
+            n <- ds$covar.factors[ds$covar.factors$column.name == intcovar,]
+            peaks <- ds$lod.peaks[[n$lod.peaks]]  
+        } else {
+            stop(sprintf("covar: %s not found in %s$covar.factors", intcovar, dataset))
+        }
+    }
+
+    if (is.null(peaks)) {
+        stop(sprintf("no peaks found for covar %s in %s", intcovar, dataset))
+    }
+    
     if (ds$datatype == "mRNA") {
         temp <- merge(x    = ds$annots[,c("gene_id", "symbol", "chr", "middle")], 
-                      y    = ds$lod.peaks[, c("annot.id", "marker.id", "lod")], 
+                      y    = peaks[, c("annot.id", "marker.id", "lod")], 
                       by.x = "gene_id", 
                       by.y = "annot.id")
 
@@ -741,7 +978,7 @@ GetLODPeaks <- function(dataset) {
                       by.y = "marker.id"))                      
     } else if (ds$datatype == "protein") {
         temp <- merge(x    = ds$annots[,c("protein_id", "gene_id", "symbol", "chr", "middle")], 
-                      y    = ds$lod.peaks[, c("annot.id", "marker.id", "lod")], 
+                      y    = peaks[, c("annot.id", "marker.id", "lod")], 
                       by.x = "protein_id", 
                       by.y = "annot.id")
 
@@ -753,7 +990,7 @@ GetLODPeaks <- function(dataset) {
                       by.y = "marker.id"))                      
     } else if (ds$datatype == "phenotype") {
         temp <- merge(x    = ds$annots[,c("data_name", "short_name", "description")], 
-                      y    = ds$lod.peaks[, c("annot.id", "marker.id", "lod")], 
+                      y    = peaks[, c("annot.id", "marker.id", "lod")], 
                       by.x = "data_name", 
                       by.y = "annot.id")
 
@@ -788,10 +1025,10 @@ GetCorrelation <- function(dataset, id, datasetCorrelate=NULL, maxItems=NULL) {
     # get the index 
     if (ds$datatype == "mRNA") {
         idx <- which(ds$annots$gene_id == id)
-        data <- as.matrix(ds$expr) 
+        data <- as.matrix(ds$rankz) 
     } else if (ds$datatype == "protein") {
         idx <- which(ds$annots$protein_id == id)
-        data <- as.matrix(ds$expr) 
+        data <- as.matrix(ds$rankz) 
     } else if (ds$datatype == "phenotype") {
         idx <- which(colnames(ds$pheno[,ds$annots$is_pheno == TRUE]) == id)
         data <- as.matrix(ds$pheno[,ds$annots$is_pheno == TRUE]) 
@@ -814,9 +1051,9 @@ GetCorrelation <- function(dataset, id, datasetCorrelate=NULL, maxItems=NULL) {
     dataCorrelate <- NULL
     
     if (dsCorrelate$datatype == "mRNA") {
-        dataCorrelate <- as.matrix(dsCorrelate$expr)
+        dataCorrelate <- as.matrix(dsCorrelate$rankz)
     } else if (dsCorrelate$datatype == "protein") {
-        dataCorrelate <- as.matrix(dsCorrelate$expr)
+        dataCorrelate <- as.matrix(dsCorrelate$rankz)
     } else if (dsCorrelate$datatype == "phenotype") {
         dataCorrelate <- as.matrix(dsCorrelate$pheno[,dsCorrelate$annots$is_pheno == TRUE]) 
     } else {
@@ -877,10 +1114,10 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
     # get the index 
     if (ds$datatype == "mRNA") {
         idx <- which(ds$annots$gene_id == id)
-        data <- as.matrix(ds$expr) 
+        data <- as.matrix(ds$rankz) 
     } else if (ds$datatype == "protein") {
         idx <- which(ds$annots$protein_id == id)
-        data <- as.matrix(ds$expr) 
+        data <- as.matrix(ds$rankz) 
     } else if (ds$datatype == "phenotype") {
         idx <- which(colnames(ds$pheno[,ds$annots$is_pheno == TRUE]) == id)
         data <- as.matrix(ds$pheno[,ds$annots$is_pheno == TRUE]) 
@@ -895,10 +1132,10 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
     # get the index of the correlate
     if (dsCorrelate$datatype == "mRNA") {
         idxCorrelate <- which(dsCorrelate$annots$gene_id == idCorrelate)
-        dataCorrelate <- as.matrix(dsCorrelate$expr) 
+        dataCorrelate <- as.matrix(dsCorrelate$rankz) 
     } else if (dsCorrelate$datatype == "protein") {
         idxCorrelate <- which(dsCorrelate$annots$protein_id == idCorrelate)
-        dataCorrelate <- as.matrix(dsCorrelate$expr) 
+        dataCorrelate <- as.matrix(dsCorrelate$rankz) 
     } else if (dsCorrelate$datatype == "phenotype") {
         idxCorrelate <- which(colnames(dsCorrelate$pheno[,dsCorrelate$annots$is_pheno == TRUE]) == idCorrelate)
         dataCorrelate <- as.matrix(dsCorrelate$pheno[,dsCorrelate$annots$is_pheno == TRUE]) 
@@ -933,7 +1170,7 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
                      datasetCorrelate = datasetCorrelate,
                      idCorrelate      = idCorrelate,
                      dataTypes        = dt,
-                     data             = data.frame(mouse.id        = rownames(data), 
+                     data             = data.frame(mouse_id        = rownames(data), 
                                                    x               = data[,idx], 
                                                    y               = dataCorrelate[,idxCorrelate],
                                                    sampleInfo,
@@ -966,8 +1203,9 @@ SerializerQTLJSON <- function() {
     }
 }
 
-addSerializer("qtlJSON", SerializerQTLJSON)
-
+if (!debug) {
+    addSerializer("qtlJSON", SerializerQTLJSON)
+}
 
 #' Generate an error response 
 #' 
@@ -1056,8 +1294,8 @@ HttpSysInfo <- function(req, res) {
 #'
 #' Example Response:
 #'    {"dataSets":[{"id":"some_identifier",
-#'                  "annotations":[{"dataName":"mouse.id",
-#'                                  "shortName":"mouse.id",
+#'                  "annotations":[{"dataName":"mouse_id",
+#'                                  "shortName":"mouse_id",
 #'                                  "desc":"the mouse identifier"}],
 #'                  "displayName":"My Data",
 #'                  "dataType":"mRNA",
@@ -1101,6 +1339,7 @@ HttpDatasetInfo <- function(req, res) {
 #' @param res the response object
 #' @param dataset the dataset identifier
 #' @param id the identifier
+#' @param intcovar the interactive covariate
 #' @param regressLocal TRUE to regress on local genotype, FALSE to not
 #' @param nCores number of cores to use (0=ALL)
 #' @param expand TRUE to expand the JSON, FALSE to condense
@@ -1128,15 +1367,20 @@ HttpDatasetInfo <- function(req, res) {
 #' @serializer qtlJSON
 #* @get /lodscan
 #* @post /lodscan
-HttpLODScan <- function(req, res, dataset, id, regressLocal=FALSE, nCores=0, 
-                        expand=FALSE) {
+HttpLODScan <- function(req, res, dataset, id, intcovar=NULL,
+                        regressLocal=FALSE, nCores=0, expand=FALSE) {
     
     result <- tryCatch(
         {
             ptm <- proc.time()
+
+            if (tolower(nvl(intcovar, '')) == 'additive') {
+                intcovar <- NULL
+            }
             
             lod <- GetLODScan(dataset      = dataset, 
                               id           = id,
+                              intcovar     = intcovar,
                               regressLocal = regressLocal,
                               nCores       = nCores)
             
@@ -1161,6 +1405,80 @@ HttpLODScan <- function(req, res, dataset, id, regressLocal=FALSE, nCores=0,
     result
 }
 
+#' Perform the LOD scan
+#'
+#' @param req the request object
+#' @param res the response object
+#' @param dataset the dataset identifier
+#' @param id the identifier
+#' @param chrom the interactive covariate
+#' @param regressLocal TRUE to regress on local genotype, FALSE to not
+#' @param nCores number of cores to use (0=ALL)
+#' @param expand TRUE to expand the JSON, FALSE to condense
+#'
+#' @return JSON data
+#'
+#' Example of expand=FALSE result:
+#'     {"result":[["1_4530778","1",40055,1.688],
+#'                ["1_4533435","1",4.5334,1.6709],
+#'                ...
+#'                ["1_4536092","1",4.5361,1.6539]
+#'               ],
+#'      "time":5.3
+#'     }
+#'
+#' Example of expand=TRUE result:
+#'     {"result":[{"id":"1_4530778","chr":"1","pos":4.5308,"lod":1.688},
+#'                {"id":"1_4533435","chr":"1","pos":4.5334,"lod":1.6709},
+#'                ...
+#'                {"id":"1_4536092","chr":"1","pos":4.5361,"lod":1.6539}
+#'               ],
+#'      "time":5.3
+#'     }
+#'     
+#' @serializer qtlJSON
+#* @get /lodscansamples
+#* @post /lodscansamples
+HttpLODScanSamples <- function(req, res, dataset, id, intcovar, chrom=NULL,
+                               regressLocal=FALSE, nCores=0, expand=FALSE) {
+    
+    result <- tryCatch(
+        {
+            ptm <- proc.time()
+
+            if (tolower(nvl(intcovar, 'additive')) == 'additive') {
+                stop("intcovar should not be additive or null")
+            }
+            
+            lod <- GetLODScanBySample(dataset      = dataset, 
+                                      id           = id,
+                                      intcovar     = intcovar,
+                                      chrom        = chrom,
+                                      #regressLocal = regressLocal,
+                                      nCores       = nCores)
+            
+            if (!(toBoolean(expand))) {
+                # by setting column names to NULL, the result will be a
+                # 2 dimensional array
+                for (element in names(lod)) {
+                    colnames(lod[[element]]) <- NULL
+                }
+            }
+
+            elapsed <- proc.time() - ptm
+            TrackTime(req, elapsed["elapsed"])
+
+            list(result = lod,
+                 time   = elapsed["elapsed"])
+        },
+        error = function(cond) {
+            res$status <- 400
+            list(error=jsonlite::unbox(cond$message))
+        }
+    )
+
+    result
+}
 
 #' Get founder coefficients
 #'
@@ -1169,6 +1487,7 @@ HttpLODScan <- function(req, res, dataset, id, regressLocal=FALSE, nCores=0,
 #' @param dataset the dataset identifier
 #' @param id an identifier
 #' @param chrom the chromosome
+#' @param intcovar the interactive covariate
 #' @param regressLocal TRUE to regress local genotype
 #' @param blup TRUE to perform Best Linear Unbiased Predictors 
 #' @param center TRUE to center around 0
@@ -1209,17 +1528,22 @@ HttpLODScan <- function(req, res, dataset, id, regressLocal=FALSE, nCores=0,
 #' @serializer qtlJSON
 #* @get /foundercoefs
 #* @post /foundercoefs
-HttpFoundercoefs <- function(req, res, dataset, id, chrom, regressLocal=FALSE, 
+HttpFoundercoefs <- function(req, res, dataset, id, chrom, intcovar=NULL, regressLocal=FALSE, 
                              blup=FALSE, center=TRUE, nCores=0, expand=FALSE) {
     ptm <- proc.time()
     
     result <- tryCatch(
         {
             ptm <- proc.time()
-            
+
+            if (tolower(nvl(intcovar, '')) == 'additive') {
+                intcovar <- NULL
+            }
+
             effect <- GetFoundercoefs(dataset      = dataset, 
                                       id           = id,
                                       chrom        = chrom, 
+                                      intcovar     = intcovar,
                                       regressLocal = regressLocal, 
                                       blup         = blup, 
                                       center       = center, 
@@ -1228,7 +1552,10 @@ HttpFoundercoefs <- function(req, res, dataset, id, chrom, regressLocal=FALSE,
             if (!(toBoolean(expand))) {
                 # by setting column names to NULL, the result will be a
                 # 2 dimensional array
-                colnames(effect) <- NULL
+                
+                for (element in names(effect)) {
+                    colnames(effect[[element]]) <- NULL
+                }
             }
             
             elapsed <- proc.time() - ptm
@@ -1466,6 +1793,7 @@ HTTPSnpAssocMapping <- function(req, res, dataset, id, chrom, location,
 #' @param req the request object
 #' @param res the response object
 #' @param dataset the dataset identifier
+#' @param intcovar the interactice covar peaks
 #' @param expand TRUE to expand the JSON, FALSE to condense
 #'
 #' @return JSON data
@@ -1500,12 +1828,12 @@ HTTPSnpAssocMapping <- function(req, res, dataset, id, chrom, location,
 #' @serializer qtlJSON
 #* @get /lodpeaks
 #* @post /lodpeaks
-HttpLODPeaks <- function(req, res, dataset, expand=FALSE) {
+HttpLODPeaks <- function(req, res, dataset, intcovar=NULL, expand=FALSE) {
     result <- tryCatch(
         {
             ptm <- proc.time()
             
-            lodPeaks <- GetLODPeaks(dataset)
+            lodPeaks <- GetLODPeaks(dataset, intcovar)
 
             if (!(toBoolean(expand))) {
                 # by setting column names to NULL, the result will be a
@@ -1528,6 +1856,86 @@ HttpLODPeaks <- function(req, res, dataset, expand=FALSE) {
     result
 }
 
+#' Get LOD Peaks for a dataset
+#'
+#' @param req the request object
+#' @param res the response object
+#' @param dataset the dataset identifier
+#' @param expand TRUE to expand the JSON, FALSE to condense
+#'
+#' @return JSON data
+#' 
+#' Example of expand=FALSE result and dataset$dataType=mRNA:
+#'     {"result":[["1_100007442","1",100.0074,
+#'                 "ENSMUSG00000028028","Alpk1","3",127.7255,6.1147],
+#'                ["1_100078094","1",100.0781,
+#'                 "ENSMUSG00000024727","Trpm6","19",18.8212,6.048],
+#'                ...
+#'                ["1_100148722","1",100.1487,
+#'                 "ENSMUSG00000045725","Prr15","6",54.3286,6.5079],
+#'               ],
+#'      "time":4.9
+#'     }
+#'
+#' Example of expand=TRUE result and dataset$dataType=mRNA:
+#'     {"result":[{"marker":"1_100007442","chr":"1","pos":100.0074,
+#'                 "gene_id":"ENSMUSG00000028028","symbol":"Alpk1",
+#'                 "gene_chrom":"3","middle":127.7255,"lod":6.1147},
+#'                {"marker":"1_100078094","chr":"1","pos":100.0781,
+#'                 "gene_id":"ENSMUSG00000024727","symbol":"Trpm6",
+#'                 "gene_chrom":"19","middle":18.8212,"lod":6.048},
+#'                ...
+#'                {"marker":"1_100148722","chr":"1","pos":100.1487,
+#'                 "gene_id":"ENSMUSG00000045725","symbol":"Prr15",
+#'                 "gene_chrom":"6","middle":54.3286,"lod":6.5079}
+#'               ],
+#'      "time":4.9
+#'     }
+#'
+#' @serializer qtlJSON
+#* @get /lodpeaksall
+#* @post /lodpeaksall
+HttpLODPeaksAll <- function(req, res, dataset, expand=FALSE) {
+    result <- tryCatch(
+        {
+            ptm <- proc.time()
+
+            # get the LOD peaks for each covarint
+            additivePeaks <- GetLODPeaks(dataset)
+
+            if (!(toBoolean(expand))) {
+                colnames(additivePeaks) <- NULL
+            }
+
+            peaks <- list(additive = additivePeaks)
+            intcovars <- GetIntCovar(dataset)
+
+            for (ic in intcovars) {
+                icPeaks <- GetLODPeaks(dataset, ic)
+
+                if (!(toBoolean(expand))) {
+                    colnames(icPeaks) <- NULL
+                }
+
+                peaks <- c(list(icPeaks), peaks)
+                names(peaks)[1] = ic
+            }
+
+            elapsed <- proc.time() - ptm
+            TrackTime(req, elapsed["elapsed"])
+            
+            list(id     = dataset,
+                 result = peaks,                 
+                 time   = elapsed["elapsed"])
+        },
+        error = function(cond) {
+            res$status <- 400
+            list(error=jsonlite::unbox(cond$message))
+        }
+    )
+
+    result
+}
 
 #' Perform correlation on a phenotype or gene.
 #'
