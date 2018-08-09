@@ -362,4 +362,3 @@ Extra columns can be included, and will be rendered in the viewer. For example,
 > | DO-203 | M | 1 | yet another description
 
 ------------
-
