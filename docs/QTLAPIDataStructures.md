@@ -26,7 +26,7 @@ The following elements should be in the `RData` file.
 
 ------------
 
-#### `ensembl.version`<a name="ensembl_version"></a> *OPTIONAL*
+#### `ensembl.version`<a name="ensembl_version"></a> *REQUIRED*
 
 - **R data type:** numeric
 
