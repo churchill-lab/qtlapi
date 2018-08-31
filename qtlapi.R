@@ -418,22 +418,6 @@ GetLODScanBySample <- function(dataset, id, intcovar, chrom=NULL, nCores=0) {
     # make sure nCores is appropriate  
     numCores = nvlInteger(nCores, 0)
  
-    # set covariates
-    if (isPheno(ds)) {
-        covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
-        covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
-        covar <- model.matrix(as.formula(covar_str), data = ds$samples)[, -1, drop = FALSE]
-    } else {
-        covar <- ds$covar
-
-        # to regress local genotype, add neareast marker to covariates
-        #if (toBoolean(regressLocal)) {
-        #    mkr = as.character(markers[ds$annots$nearest.marker.id[idx], 1])
-        #    chr = as.character(markers[ds$annots$nearest.marker.id[idx], 2])
-        #    covar <- cbind(covar, genoprobs[, chr][, -1, mkr])
-        #}
-    }
-
     t <- list()
     for (f in ds$covar.factors$column.name) {
         stopifnot(!is.null(ds$samples[[f]]))
@@ -450,7 +434,21 @@ GetLODScanBySample <- function(dataset, id, intcovar, chrom=NULL, nCores=0) {
 
     # get values for each category
     for (x in t[[intcovar]]) {
-        samples_idx <- rownames(categories)[categories[, 1] == x]
+        # set covariates
+        if (isPheno(ds)) {
+            covar_str <- strsplit(ds$annots$use_covar[idx], ":")[[1]]
+            covar_str <- paste0("~", paste0(covar_str, collapse = "+"))
+            covar <- model.matrix(as.formula(covar_str), data = ds$samples)[, -1, drop = FALSE]
+        } else {
+            samples_idx <- rownames(categories)[categories[, 1] == x]
+            covar <- ds$covar[samples_idx, , drop=FALSE]
+            
+            # get the interactive covariate
+            n <- ds$covar.factors[ds$covar.factors$column.name == intcovar, ]
+            
+            # exclude covar columns that contain it's name
+            covar <- covar[, -which(grepl(n$covar.name, colnames(covar)))]
+        }
 
         if (is.null(chrom)) {
             temp <- (scan1(genoprobs = genoprobs[samples_idx, ],
@@ -472,12 +470,16 @@ GetLODScanBySample <- function(dataset, id, intcovar, chrom=NULL, nCores=0) {
 
             ret[[x]] <- tempDT
         } else {
-            temp <- (scan1(genoprobs = genoprobs[samples_idx, chrom],
-                           kinship   = K[[chrom]][samples_idx, samples_idx],                           
-                           pheno     = data[samples_idx, idx, drop = F],
-                           addcovar  = covar, 
-                           cores     = numCores,
-                           reml      = TRUE))
+            temp <- scan1(genoprobs = genoprobs[samples_idx, chrom],
+                          kinship   = K[[chrom]][samples_idx, samples_idx],
+                          pheno     = data[samples_idx, idx, drop = F],
+                          addcovar  = covar, 
+                          cores     = numCores,
+                          reml      = TRUE)
+
+            print(paste0('-------- ', x, ' --------'))            
+            print(colnames(covar))
+            print(head(temp))
 
             tempMarkers <- markers[which(markers$chr == chrom), ]
 
@@ -490,7 +492,7 @@ GetLODScanBySample <- function(dataset, id, intcovar, chrom=NULL, nCores=0) {
             # setting colnames to NULL removes the names in the JSON and return an array
             colnames(tempDT)[4] <- "lod"
 
-            ret[[x]] <- tempDT
+            ret[[toString(x)]] <- tempDT
         }
     
     }
@@ -607,6 +609,13 @@ GetFoundercoefs <- function(dataset, id, chrom, intcovar=NULL, regressLocal = FA
         # get values for each category
         for (x in t[[intcovar]]) {
             samples_idx <- rownames(categories)[categories[, 1] == x]
+            covar <- ds$covar[samples_idx, , drop=FALSE]
+
+            # get the interactive covariate
+            n <- ds$covar.factors[ds$covar.factors$column.name == intcovar, ]
+            
+            # exclude covar columns that contain it's name
+            covar <- covar[, -which(grepl(n$covar.name, colnames(covar)))]
 
             if (toBoolean(blup)) {
                 temp <- scan1blup(genoprobs = genoprobs[samples_idx, chrom],
@@ -626,10 +635,10 @@ GetFoundercoefs <- function(dataset, id, chrom, intcovar=NULL, regressLocal = FA
                     temp[, LETTERS[1:8]] - rowMeans(temp[, LETTERS[1:8]], na.rm = TRUE)
             }
 
-            ret[[x]] <- data.table(id = names(map[[chrom]]), 
-                                   chr = chrom, 
-                                   pos = map[[chrom]], 
-                                   temp[,LETTERS[1:8]])
+            ret[[toString(x)]] <- data.table(id = names(map[[chrom]]), 
+                                             chr = chrom, 
+                                             pos = map[[chrom]], 
+                                             temp[,LETTERS[1:8]])
         }
     }
     
