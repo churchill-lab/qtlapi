@@ -247,6 +247,10 @@ GetIntCovar <- function(dataset) {
     if (is.null(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
+    
+    if (gtools::invalid(ds$covar.factors)) {
+        return (NULL)
+    }
 
     ds$covar.factors[which(!is.na(ds$covar.factors$covar.name)),]$column.name
 }
@@ -1377,6 +1381,7 @@ HttpLODScan <- function(req, res, dataset, id, intCovar = NULL,
              time   = elapsed["elapsed"])
     },
     error = function(cond) {
+        logger$error(cond)
         res$status <- 400
         list(error=jsonlite::unbox(cond$message))
     })

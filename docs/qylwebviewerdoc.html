@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" href="http://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+        <link rel="stylesheet" href="codemirror.css">
+
+        <style>
+            .row-spacer {height: 10px;}
+        </style>
+
+        <title>QTLWEB</title>
+    </head>
+
+
+
+
+
+    <body>
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-3 px-1 position-fixed" id="sticky-sidebar">
+                    <a href="#card_chromosomes">/chromosomes</a>
+                    <br/>
+                    <a href="#card_chromosomes">/datasets</a>
+                    <br/>
+                    <a href="#card_chromosomes">/lodpeaksall</a>
+                    <br/>
+                    <a href="#card_chromosomes">/lodpeaks</a>
+                    <br/>
+                    <a href="#card_chromosomes">/geneinfor</a>
+                    <br/>
+                    <a href="#card_chromosomes">/correlation</a>
+                    <br/>
+                    <a href="#card_chromosomes">/correlationPlotData</a>
+                    <br/>
+                    <a href="#card_chromosomes">/chromosomes</a>
+                    <br/>
+                </div>
+                <div class="col offset-3" id="main">
+
+
+            <!-- START CHROMOSOMES -->
+
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            <a id="card_chromosomes"></a>
+                            //churchill-lab.jax.org/ensimpl/api/chromosomes
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get the chromosomes and their lengths for the Ensembl release.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    initialization
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+version (84)
+species ("Mm")
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_chromosomes">
+{
+    chromosomes: [{
+        chromosome: "1"
+        end: 195471971
+        length: 195471971
+        mid: 97735986
+        order: 1
+        start: 1
+    }],
+    species: "Mm",
+    version: 84
+}                                
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END CHROMOSOMES -->
+
+            <div class="row row-spacer"></div>
+
+
+            <!-- START DATASETS -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /datasets
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get the datasets and return the information needed to configure the covariates and other elements.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    initialization
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_datasets">
+{
+    result: { 
+        dataSets: [{ 
+            annotations: {
+                ids: [
+                    'ENSMUSG00000000001', 'ENSMUSG00000000049', ...
+                ]
+            },
+            covarFactors:[{
+                column.name: "Sex",
+                covar.name: "SexM",
+                display.name: "Sex",
+                int.covar: "factor",
+                lod.peaks: "sex_int"
+            }, { 
+                column.name: "Age",
+                covar.name: "Age",
+                display.name: "Age",
+                int.covar: "factor",
+                lod.peaks: "age_int"
+            }, { 
+                column.name: "Generation",
+                display.name: "Generation"
+            }],
+            dataType: "mRNA",
+            displayName: "dataset.mrna",
+            ensemblVersion: "",
+            id: "dataset.mrna"
+        }, {
+            annotations: {
+                ids: [{
+                    gene_id: 'ENSMUSG00000000001', 
+                    protein_id: 'ENSMUSP00000000001'
+                } {
+                    ...
+                }],                                        
+            },
+            covarFactors:[{
+                column.name: "Sex",
+                covar.name: "SexM",
+                display.name: "Sex",
+                int.covar: "factor",
+                lod.peaks: "sex_int"
+            }, { 
+                column.name: "Age",
+                display.name: "Age"
+            }, { 
+                column.name: "Generation",
+                display.name: "Generation"
+            }],
+            dataType: "protein",
+            displayName: "dataset.protein",
+            ensemblVersion: "",
+            id: "dataset.protein"
+        }, 
+        ensemblVersion: 84
+    },
+    time: 0.081
+}                
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END DATASETS -->
+
+            <div class="row row-spacer"></div>
+
+            <!-- START LODPEAKS -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /lodpeaksall
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Download the LOD peaks for a dataset.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    initialization
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_lodpeaksall">
+{
+    id: "dataset.mrna",
+    result: {
+        Age: [
+            ["1_100234153","1",100.234153,"ENSMUSG00000092083","Kcnb2","1",15.500777,8.2933585315],
+            ["1_10056636","1",10.056636,"ENSMUSG00000002477","Snrpd1","18",10.623013,8.1467994834],
+            ...
+        ],
+        Sex: [
+            ["1_100020374","1",100.020374,"ENSMUSG00000021003","Galc","12",98.230882,8.1738525304],
+            ["1_100020374","1",100.020374,"ENSMUSG00000031447","Lamp1","8",13.167236,8.0185742867],
+            ...
+        ]
+    },
+    time: 1.189
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END LODPEAKS -->
+
+            <div class="row row-spacer"></div>
+
+            <!-- START LODSCAN -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /lodscan
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Perform a LOD scan for the id and dataset.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    gene/protein/phenotype selection
+                                    <br/>
+                                    selection change on dropdown above LOD Plot
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+intCovar ("additive" IF only additive selected)
+nCores (5)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_lodscan">
+{
+    response: {
+        result: {[
+            ["1_40055", "1", 0.040055, 0.2507683903],
+            ["1_87283", "1", 0.087283, 0.2507683903],
+            ...                
+        ]},
+        time: 4.231
+    },        
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END LODSCAN -->
+    
+            <div class="row row-spacer"></div>
+
+            <!-- START GENE INFO -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            //churchill-lab.jax.org/ensimpl/api/gene
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get Gene/Protein information.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    gene/protein/phenotype selection
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+version (84)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_geneinfo">
+{
+    "gene": {
+        "ENSMUSG00000005672": {
+            "chromosome": "5",
+            "end": 75656722,
+            "ensembl_version": "11",
+            "external_ids": [
+                {
+                "db": "EntrezGene",
+                "db_id": "16590"
+                },
+                {
+                "db": "MGI",
+                "db_id": "MGI:96677"
+                },
+                {
+                "db": "UniGene",
+                "db_id": "Mm.247073"
+                }
+            ],
+            "id": "ENSMUSG00000005672",
+            "name": "kit oncogene",
+            "species_id": "Mm",
+            "start": 75574916,
+            "strand": "+",
+            "symbol": "Kit",
+            "synonyms": [
+                "Bs",
+                "c-KIT",
+                "CD117",
+                ...
+            ]
+        }
+    }
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END GENE INFO -->
+
+            <div class="row row-spacer"></div>            
+
+            <!-- START CORRELATION -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /correlation
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get correlation data
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    gene/protein/phenotype selection
+                                    <br/>
+                                    correlation dataset selection
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+datasetCorrelate ("dataset.protein" OR NOTHING for same dataset)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_correlate">
+{
+    "result": [{
+        chr: "X"
+        cor: 1
+        end: 164.18842
+        id: "ENSMUSG00000015405"
+        start: 164.139332
+        symbol: "Ace2"
+    }, {
+        chr: "6"
+        cor: 0.65060215274
+        end: 52.640389
+        id: "ENSMUSG00000029776"
+        start: 52.546228
+        symbol: "Hibadh"    
+    }, 
+    ...,
+    ]        
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END CORRELATION -->
+
+            <div class="row row-spacer"></div>        
+
+            <!-- START CORRELATION -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /correlationPlotData
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get correlation data
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    gene/protein/phenotype selection
+                                    <br>
+                                    id selection from correlation dataset
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+datasetCorrelate ("dataset.protein" OR NOTHING for same dataset)
+idCorrelate ("ENSMUSG00000000001")
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_correlattionPlotData">
+{
+"result": {
+    data: [{
+        Age: 12
+        Generation: "G8"
+        Sex: "F"
+        mouse_id: "DO-0661"
+        x: -0.53786018869
+        y: 0.15150020158
+        _row: "DO-0661"    
+    }, {
+        Age: 18
+        Generation: "G8"
+        Sex: "F"
+        mouse_id: "DO-0669"
+        x: 1.4957645364
+        y: -0.032815159076
+        _row: "DO-0669"
+    },
+    ...
+    ],
+    dataTypes: {
+        Age: [6,12,18],
+        Generation: ['G8', 'G9', 'G10', 'G11', 'G12'],
+        Sex: ['F', 'M']
+
+    }
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END CORRELATION -->
+    
+            <div class="row row-spacer"></div>
+
+            <!-- START CORRELATIONPLOTDATA -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /foundercoefs
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get Effect Plot data.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    selection of LOD plot
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+chrom ("11")
+intCovar ("additive" OR one of the interactive covariates)
+blup (T or F)
+nCores (5)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_foundercoefs">
+{
+"result": {
+    additive: [
+        ["6_738935", "6", 0.738935, -0.10262743218, 0.27715286981, 0.26798714651, -0.47303533073, 0.9448221291, -0.57265798269, -0.24933308414, -0.092308315684],
+        ["6_783814", "6", 0.783814, -0.10262743218, 0.27715286981, 0.26798714651, -0.47303533073, 0.9448221291, -0.57265798269, -0.24933308414, -0.092308315684],
+        ...
+    ],
+    time: 2.08
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END CORRELATIONPLOTDATA -->
+
+            <div class="row row-spacer"></div>
+
+            <!-- START LODSCANSAMPLES -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /lodscansamples
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get LOD scans by samples.
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    selection of LOD plot
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+chrom ("11")
+intCovar ("additive" OR one of the interactive covariates)
+blup (T or F)
+nCores (5)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_lodscansamples">
+{
+"result": {
+    F: [
+        ["6_738935", "6", 0.738935, 2.590207244],
+        ["6_783814", "6", 0.783814, 2.590207244],
+        ...
+    ],
+    M: [
+        ["6_738935", "6", 0.738935, 2.89123722],
+        ["6_783814", "6", 0.783814, 2.89123722],
+    ]
+time: 2.08
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END LODSCANSAMPLES -->
+            
+            <div class="row row-spacer"></div>
+
+            <!-- START MEDIATION -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /mediate
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get mediation
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    selection of LOD plot
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+mid("2_49936881" marker id)
+datasetMediate ("dataset.mrna" OR another)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_mediation">
+{
+"result": [
+        ["ENSMUSG00000000001", "Gnai3", "3", 108.126713, 2.4226114768, x: 485711909, y: 2.4226114768],
+        ["ENSMUSG00000000049", "Apoh", "11", 108.378875, 1.9260499846, x: 1634215872, y: 1.9260499846]
+    ],
+time: 2.08
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END MEDIATION -->
+
+            <div class="row row-spacer"></div>
+
+            <!-- START SNPASSOC -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            /snpassoc
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get SNP association data
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    selection of LOD plot
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+dataset ("dataset.mrna")
+id ("ENSMUSG00000020681")
+mid("2_49936881" marker id)
+datasetMediate ("dataset.mrna" OR another)
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_snpassoc">
+{
+"result": [
+        ["rs231840053", "5", 66.650153, "C|A/T", 64, "ENSMUSG00000087601", "intron_variant,non_coding_transcript_variant", 5583, 1481, false, 0.16670813717],
+        ["rs230888462", "5", 66.650409, "A|T", 105, "ENSMUSG00000087601", "intron_variant,non_coding_transcript_variant", 5724, 1481, false, 0.1897928856]
+    ],
+time: 3.81
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END SNPASSOC -->
+
+            <div class="row row-spacer"></div>
+
+            <!-- START GENELOCATION -->
+            <div class="row">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            //churchill-lab.jax.org/ensimpl/api/search
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col">
+                                    Get genes for SNP association data
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">When Called</h5>
+                                    selection of LOD plot
+                                    <br/><br/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Parameters</h5>
+<pre>
+species ("Mm")
+version (84)
+term ("1:18129732-213521231")
+</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <h5 class="card-title border-top">Output</h5>
+<textarea id="json_genelocation">
+{
+"result": 
+    matches: [
+        chromosome: "5"
+        ensembl_gene_id: "ENSMUSG00000029207"
+        ensembl_version: "15"
+        external_ids: (3) [{…}, {…}, {…}]
+        id: undefined
+        match_reason: "Region"
+        match_value: "5:66298703-66618784"
+        max_end: 66618784
+        name: "amyloid beta (A4) precursor protein-binding, family B, member 2"
+        position_end: 66618784
+        position_start: 66298703
+        slot: 0
+        species: "Mm"
+        strand: "-"
+        symbol: "Apbb2"
+        synonyms: (10) ["2310007D03Rik", "FE65L1", "Rirl1", "TR2L", "Zfra", "2310007D03Rik", "FE65L1", "Rirl1", "TR2L", "Zfra"]
+        y: -0
+    ],
+    ...
+    ]
+time: 3.81
+}
+</textarea>
+        
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END GENELOCATION -->
+    
+        </div>
+    </div>
+</div>
+    
+
+                    
+
+        <!-- Optional JavaScript -->
+        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="http://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+        <script src="http://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+        <script src="codemirror.js"></script>
+
+        <script>
+            $().ready(function () {
+                let selections = $('[id^="json_"]');
+
+                $.each(selections, function(idx, elem) {
+                    console.log(idx, elem);
+                    let m = CodeMirror.fromTextArea(document.getElementById(elem.id), {
+                        lineNumbers: true,
+                        mode: {name: "javascript", json: true},
+                    });
+                    m.setSize(null, 200);
+                });
+
+            });
+        </script>
+        
+    </body>
+</html>
+
