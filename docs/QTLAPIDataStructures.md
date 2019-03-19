@@ -289,8 +289,8 @@ The following column names must be present:
 
 | column_name | column_type | description |
 | ----------- | ---------- | ---------- |    
-| `column_name` | character | column name in [`samples`](#pheno_samples)
-| `display_name` | character | display name for the viewer
+| `column.name` | character | column name in [`samples`](#pheno_samples)
+| `display.name` | character | display name for the viewer
 | `int.covar` | character | string, either `factor`, `numeric` or NA
 | `lod.peaks` | character | string, name of the corresponding element in [`lod.peaks`](#pheno_lodpeaks)
 | `covar.name` | character | name of the corresponding column in [`covar`](#pheno_covar)
