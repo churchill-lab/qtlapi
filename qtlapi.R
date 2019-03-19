@@ -11,7 +11,6 @@ library(jsonlite)
 library(qtl2)
 library(RSQLite)
 library(pryr)
-library(plumber)
 library(gtools)
 
 
@@ -244,12 +243,12 @@ GetIntCovar <- function(dataset) {
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
     
     if (gtools::invalid(ds$covar.factors)) {
-        return (NULL)
+        return(NULL)
     }
 
     ds$covar.factors[which(!is.na(ds$covar.factors$covar.name)),]$column.name
@@ -321,7 +320,7 @@ GetLODScan <- function(dataset, id, intCovar = NULL, nCores = 0) {
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -339,7 +338,7 @@ GetLODScan <- function(dataset, id, intCovar = NULL, nCores = 0) {
         stop("invalid datatype")
     }
     
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
@@ -354,10 +353,14 @@ GetLODScan <- function(dataset, id, intCovar = NULL, nCores = 0) {
         covarStr <- paste0("~", paste0(covarStr, collapse = "+"))
         covar <- model.matrix(as.formula(covarStr), data = ds$samples)[, -1, drop = FALSE]
     } else {
-        covar <- ds$covar
+        covar <- NULL
+        
+        if (!gtools::invalid(ds$covar)) {
+            covar <- ds$covar    
+        }
     }
-
-    if (!is.null(intCovar)) {
+    
+    if (!gtools::invalid(intCovar)) {
         if (intCovar %not in% ds$covar.factors$column.name) {
             stop(sprintf("covar: %s not found in %s$covar.factors", intCovar, dataset))
         }
@@ -365,7 +368,7 @@ GetLODScan <- function(dataset, id, intCovar = NULL, nCores = 0) {
         n <- ds$covar.factors[ds$covar.factors$column.name == intCovar, ]
         interactiveCovariate <- ds$covar[, n$covar.name, drop = FALSE]
     }
-
+    
     # perform the scan using QTL2, 
     # - addcovar should always be ALL covars
     # - intcovar should be just the intCovar column
@@ -385,7 +388,7 @@ GetLODScan <- function(dataset, id, intCovar = NULL, nCores = 0) {
 
     # setting colnames to NULL removes the names in the JSON and return an array
     colnames(tempDT)[4] <- "lod"
-
+    
     tempDT
 }
 
@@ -405,7 +408,7 @@ GetLODScanBySample <- function(dataset, id, intCovar,
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -423,7 +426,7 @@ GetLODScanBySample <- function(dataset, id, intCovar,
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
@@ -468,7 +471,7 @@ GetLODScanBySample <- function(dataset, id, intCovar,
         # exclude covar columns that contain it's name
         covar <- covar[, -which(grepl(n$covar.name, colnames(covar)))]
 
-        if (is.null(chrom)) {
+        if (gtools::invalid(chrom)) {
             temp <- (scan1(genoprobs = genoprobs[samplesIdx, ],
                            kinship   = K[samplesIdx, samplesIdx],
                            pheno     = data[samplesIdx, idx, drop = FALSE],
@@ -520,8 +523,8 @@ GetFoundercoefs <- function(dataset, id, chrom, intCovar = NULL,
                             blup = FALSE, center = TRUE, nCores = 0) {
     # get the dataset
     ds = GetDataSet(dataset)
-
-    if (is.null(ds)) {
+    
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -539,12 +542,12 @@ GetFoundercoefs <- function(dataset, id, chrom, intCovar = NULL,
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
     # make sure the chromosome data exists
-    if (is.null(K[[chrom]])) {
+    if (gtools::invalid(K[[chrom]])) {
         stop(paste0("chrom not found: ", chrom))
     }
 
@@ -557,12 +560,16 @@ GetFoundercoefs <- function(dataset, id, chrom, intCovar = NULL,
         covarStr <- paste0("~", paste0(covarStr, collapse = "+"))
         covar <- model.matrix(as.formula(covarStr), data = ds$pheno)[, -1, drop = FALSE]
     } else {
-        covar <- ds$covar
+        covar <- NULL
+        
+        if (!gtools::invalid(ds$covar)) {
+            covar <- ds$covar    
+        }
     }
 
     ret <- list()
 
-    if (is.null(intCovar)) {
+    if (gtools::invalid(intCovar)) {
         if (toBoolean(blup)) {
             temp <- scan1blup(genoprobs = genoprobs[, chrom],
                               pheno     = data[, idx, drop = FALSE],
@@ -659,7 +666,7 @@ GetExpression <- function(dataset, id) {
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -675,19 +682,21 @@ GetExpression <- function(dataset, id) {
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
-
-    # TODO: do we need to create this and pass back everything or maybe a subset?
-    # the types of expression data
-    t <- list()
-    for (f in ds$covar.factors$column.name) {
-        stopifnot(!is.null(ds$samples[[f]]))
-        if (is.factor(ds$samples[[f]])) {
-            t[[f]] <- mixedsort(levels(ds$samples[[f]]))
-        } else {
-            t[[f]] <- mixedsort(unique(ds$samples[[f]]))
+    
+    if (gtools::invalid(ds$covar.factor)) {
+        t <- NULL
+    } else {
+        t <- list()
+        for (f in ds$covar.factors$column.name) {
+            stopifnot(!is.null(ds$samples[[f]]))
+            if (is.factor(ds$samples[[f]])) {
+                t[[f]] <- mixedsort(levels(ds$samples[[f]]))
+            } else {
+                t[[f]] <- mixedsort(unique(ds$samples[[f]]))
+            }
         }
     }
 
@@ -698,12 +707,13 @@ GetExpression <- function(dataset, id) {
     }
 
     # rename 'mouse.id' to be 'mouse_id' for easier JSON with JavaScript
-    colnames(output)[colnames(output)=="mouse.id"] <- "mouse_id"
+    colnames(output)[tolower(colnames(output))=="mouse.id"] <- "mouse_id"
 
-    # elimate the _row column down line for JSON
+    # eliminate the _row column down line for JSON
     rownames(output) <- NULL
 
-    list(data = output, dataTypes = t)
+    list(data = output, 
+         dataTypes = t)
 }    
 
 
@@ -723,7 +733,7 @@ GetMediate <- function(dataset, id, mid, datasetMediate = NULL) {
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -743,14 +753,14 @@ GetMediate <- function(dataset, id, mid, datasetMediate = NULL) {
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
     # get the dataset we are mediating against
     datasetMediate <- nvl(datasetMediate, dataset)
     dsMediate = GetDataSet(datasetMediate)
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", datasetMediate))
     }
 
@@ -768,21 +778,29 @@ GetMediate <- function(dataset, id, mid, datasetMediate = NULL) {
     # get the marker index 
     mrkx <- which(markers$marker == mid)
 
-    if (length(mrkx) == 0) {
+    if (gtools::invalid(mrkx)) {
         stop(paste0("mid not found: ", mid))
     }
 
     chrTmp = as.character(markers[mrkx, 2])
     annot$middle_point <- dsMediate$annots$middle
-
-    # perform the mediation
-    toReturn <- mediation.scan(target     = data[,idx, drop = FALSE],
-                               mediator   = dsMediate$rankz,
-                               annotation = annot,
-                               covar      = dsMediate$covar,
-                               qtl.geno   = genoprobs[[chrTmp]][rownames(dsMediate$rankz), , mid],
-                               verbose    = FALSE)
-
+    
+    if (!gtools::invalid(dsMediate$covar)) {
+        # perform the mediation
+        toReturn <- mediation.scan(target     = data[,idx, drop = FALSE],
+                                   mediator   = dsMediate$rankz,
+                                   annotation = annot,
+                                   covar      = dsMediate$covar,
+                                   qtl.geno   = genoprobs[[chrTmp]][rownames(dsMediate$rankz), , mid],
+                                   verbose    = FALSE)
+    } else {
+        toReturn <- mediation.scan(target     = data[,idx, drop = FALSE],
+                                   mediator   = dsMediate$rankz,
+                                   annotation = annot,
+                                   qtl.geno   = genoprobs[[chrTmp]][rownames(dsMediate$rankz), , mid],
+                                   verbose    = FALSE)
+    }
+    
     rownames(toReturn) <- NULL
 
     toReturn
@@ -806,7 +824,7 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -821,7 +839,7 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
@@ -881,7 +899,11 @@ GetSnpAssocMapping <- function(dataset, id, chrom, location, windowSize=500000,
         covarStr <- paste0("~", paste0(covarStr, collapse = "+"))
         covar <- model.matrix(as.formula(covarStr), data = ds$pheno)[, -1, drop = FALSE]
     } else {
-        covar <- ds$covar
+        covar <- NULL
+        
+        if (!gtools::invalid(ds$covar)) {
+            covar <- ds$covar    
+        }
     }
 
     # convert allele probs to SNP probs
@@ -928,13 +950,13 @@ GetLODPeaks <- function(dataset, intCovar = NULL) {
     # get the dataset
     ds = GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
     peaks <- NULL
-
-    if (is.null(intCovar)) {
+    
+    if (gtools::invalid(intCovar)) {
         peaks <- ds$lod.peaks$additive
     } else {
         # find the covar and get the name of the lod peaks
@@ -946,7 +968,7 @@ GetLODPeaks <- function(dataset, intCovar = NULL) {
         }
     }
 
-    if (is.null(peaks)) {
+    if (gtools::invalid(peaks)) {
         stop(sprintf("no peaks found for covar %s in %s", intCovar, dataset))
     }
 
@@ -1004,7 +1026,7 @@ GetCorrelation <- function(dataset, id,
     # get the dataset
     ds <- GetDataSet(dataset)
 
-    if (is.null(ds)) {
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
@@ -1024,7 +1046,7 @@ GetCorrelation <- function(dataset, id,
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
@@ -1032,7 +1054,7 @@ GetCorrelation <- function(dataset, id,
     datasetCorrelate <- nvl(datasetCorrelate, dataset)
 
     dsCorrelate = GetDataSet(datasetCorrelate)
-    if (is.null(dsCorrelate)) {
+    if (gtools::invalid(dsCorrelate)) {
         stop(paste0("datasetCorrelate not found: ", dataset))
     }
 
@@ -1090,12 +1112,14 @@ GetCorrelation <- function(dataset, id,
 GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
     # get the dataset
     ds <- GetDataSet(dataset)
-    if (is.null(ds)) {
+    
+    if (gtools::invalid(ds)) {
         stop(paste0("dataset not found: ", dataset))
     }
 
     dsCorrelate <- GetDataSet(datasetCorrelate)
-    if (is.null(dsCorrelate)) {
+    
+    if (gtools::invalid(dsCorrelate)) {
         stop(paste0("dataset not found: ", datasetCorrelate))
     }
 
@@ -1113,7 +1137,7 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
         stop("invalid datatype")
     }
 
-    if (length(idx) == 0) {
+    if (gtools::invalid(idx)) {
         stop(paste0("id not found: ", id))
     }
 
@@ -1131,7 +1155,7 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
         stop("invalid datatype")
     }
 
-    if (length(idxCorrelate) == 0) {
+    if (gtools::invalid(idxCorrelate)) {
         stop(paste0("id not found: ", idCorrelate))
     }
 
@@ -1168,33 +1192,6 @@ GetCorrelationPlotData <- function(dataset, id, datasetCorrelate, idCorrelate) {
 }
 
 
-# #############################################################################
-#
-# Plumber filters, routes, and utils
-#
-# #############################################################################
-
-#' @rdname serializers
-#' @export
-SerializerQTLJSON <- function() {
-    function(val, req, res, errorHandler) {
-        tryCatch({
-            json <- jsonlite::toJSON(val, auto_unbox = TRUE, digits=10)
-
-            res$setHeader("Content-Type", "application/json")
-            res$body <- json
-
-            return(res$toResponse())
-        }, error = function(e){
-            errorHandler(req, res, e)
-        })
-    }
-}
-
-if (!debugMode) {
-    addSerializer("qtlJSON", SerializerQTLJSON)
-}
-
 #' Generate an error response 
 #' 
 #' @param res the response object
@@ -1217,771 +1214,4 @@ function(req, res){
     res$setHeader("Access-Control-Allow-Origin", "*")
     plumber::forward()
 }
-
-
-#' The following is used for debugging to show where the requests are coming 
-#' from.
-#' 
-#' @param req the request object
-#' 
-#* @filter logger
-function(req){
-    print(paste0("[", Sys.time(), "] [",
-                 req$REMOTE_ADDR, "] [",
-                 req$REQUEST_METHOD, "] [",
-                 req$PATH_INFO, 
-                 req$QUERY_STRING, "]"))
-    plumber::forward()
-}
-
-#' Make sure the server is alive
-#'
-#' @param req the request object
-#' @param res the response object
-#'
-#' @return 'OK' if alive
-#'
-#' @serializer unboxedJSON
-#* @get /ping
-HttpPing <- function(req, res) {
-    'OK'
-}
-
-
-#' Get the system information.
-#'
-#' @param req the request object
-#' @param res the response object
-#'
-#' @return JSON of the system information
-#'
-#' @serializer unboxedJSON
-#* @get /sysinfo
-HttpSysInfo <- function(req, res) {
-    # start the clock
-    ptm <- proc.time()
-    
-    toReturn <- as.list(Sys.info())
-    
-    # stop the clock
-    elapsed <- proc.time() - ptm
-    TrackTime(req, elapsed["elapsed"])
-    
-    toReturn
-}
-
-
-#' Get dataset information.
-#'
-#' For now the levels should be either mrna/protein OR pheno.
-#'
-#' @param req the request object
-#' @param res the response object
-#'
-#' @return JSON object of the options
-#'
-#' Example Response:
-#'    {"dataSets":[{"id":"some_identifier",
-#'                  "annotations":[{"dataName":"mouse_id",
-#'                                  "shortName":"mouse_id",
-#'                                  "desc":"the mouse identifier"}],
-#'                  "displayName":"My Data",
-#'                  "dataType":"mRNA",
-#'                  "ensemblVersion":"90",
-#'                  "covarFactors":[{"column.name":"Sex",
-#'                                   "display.name":"Sex"},
-#'                                  {"column.name":"Generation",
-#'                                   "display.name":"Generation"}]
-#'                 }]
-#'    }
-#'
-#' @serializer qtlJSON
-#' @get /datasets
-HttpDatasetInfo <- function(req, res) {
-    
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        datasets <- GetDatasetInfo()
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-
-        list(result = datasets,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-
-#' Perform the LOD scan
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id the identifier
-#' @param intCovar the interactive covariate
-#' @param nCores number of cores to use (0=ALL)
-#' @param expand TRUE to expand the JSON, FALSE to condense
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     {"result":[["1_4530778","1",40055,1.688],
-#'                ["1_4533435","1",4.5334,1.6709],
-#'                ...
-#'                ["1_4536092","1",4.5361,1.6539]
-#'               ],
-#'      "time":5.3
-#'     }
-#'
-#' Example of expand=TRUE result:
-#'     {"result":[{"id":"1_4530778","chr":"1","pos":4.5308,"lod":1.688},
-#'                {"id":"1_4533435","chr":"1","pos":4.5334,"lod":1.6709},
-#'                ...
-#'                {"id":"1_4536092","chr":"1","pos":4.5361,"lod":1.6539}
-#'               ],
-#'      "time":5.3
-#'     }
-#'     
-#' @serializer qtlJSON
-#* @get /lodscan
-#* @post /lodscan
-HttpLODScan <- function(req, res, dataset, id, intCovar = NULL,
-                        nCores = 0, expand = FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        if (tolower(nvl(intCovar, '')) == 'additive') {
-            intCovar <- NULL
-        }
-
-        lod <- GetLODScan(dataset      = dataset, 
-                          id           = id,
-                          intCovar     = intCovar,
-                          nCores       = nCores)
-
-        if (!(toBoolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            colnames(lod) <- NULL
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-
-        list(result = lod,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        logger$error(cond)
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-#' Perform the LOD scan
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id the identifier
-#' @param intCovar the interactive covariate
-#' @param chrom the interactive covariate
-#' @param nCores number of cores to use (0=ALL)
-#' @param expand TRUE to expand the JSON, FALSE to condense
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     {"result":[["1_4530778","1",40055,1.688],
-#'                ["1_4533435","1",4.5334,1.6709],
-#'                ...
-#'                ["1_4536092","1",4.5361,1.6539]
-#'               ],
-#'      "time":5.3
-#'     }
-#'
-#' Example of expand=TRUE result:
-#'     {"result":[{"id":"1_4530778","chr":"1","pos":4.5308,"lod":1.688},
-#'                {"id":"1_4533435","chr":"1","pos":4.5334,"lod":1.6709},
-#'                ...
-#'                {"id":"1_4536092","chr":"1","pos":4.5361,"lod":1.6539}
-#'               ],
-#'      "time":5.3
-#'     }
-#'     
-#' @serializer qtlJSON
-#* @get /lodscansamples
-#* @post /lodscansamples
-HttpLODScanSamples <- function(req, res, dataset, id, intCovar, chrom = NULL,
-                               regressLocal = FALSE, nCores = 0, expand = FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        if (tolower(nvl(intCovar, 'additive')) == 'additive') {
-            stop("intCovar should not be additive or null")
-        }
-
-        lod <- GetLODScanBySample(dataset      = dataset, 
-                                  id           = id,
-                                  intCovar     = intCovar,
-                                  chrom        = chrom,
-                                  nCores       = nCores)
-        
-        if (!(toBoolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            for (element in names(lod)) {
-                colnames(lod[[element]]) <- NULL
-            }
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-
-        list(result = lod,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-#' Get founder coefficients
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id an identifier
-#' @param chrom the chromosome
-#' @param intCovar the interactive covariate
-#' @param blup TRUE to perform Best Linear Unbiased Predictors 
-#' @param center TRUE to center around 0
-#' @param nCores number of cores to use (0=ALL)
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     {"result":[["2_4292516","2",4.2925,
-#'                 0.012,-0.0267,0.0345,0.1994,
-#'                 0.1305,-0.4769,0.1217,0.0055},
-#'                {"2_4337139","2",4.3371,
-#'                 0.0114,-0.0267,0.0343,0.2,
-#'                 0.1307,-0.4769,0.1218,0.0055},
-#'                ...
-#'                {"2_4369263","2",4.3693,
-#'                 0.012,-0.0259,0.0407,0.2006,
-#'                 0.1323,-0.4783,0.1134,0.0052}
-#'                ],
-#'      "time":3.3
-#'     }
-#'     
-#' Example of expand=TRUE result:
-#'     {"result":[{"id":"2_4292516","chr":"2","pos":4.2925,
-#'                 "A":0.012,"B":-0.0267,"C":0.0345,"D":0.1994,
-#'                 "E":0.1305,"F":-0.4769,"G":0.1217,"H":0.0055},
-#'                {"id":"2_4337139","chr":"2","pos":4.3371,
-#'                 "A":0.0114,"B":-0.0267,"C":0.0343,"D":0.2,
-#'                 "E":0.1307,"F":-0.4769,"G":0.1218,"H":0.0055},
-#'                ...
-#'                {"id":"2_4369263","chr":"2","pos":4.3693,
-#'                 "A":0.012,"B":-0.0259,"C":0.0407,"D":0.2006,
-#'                 "E":0.1323,"F":-0.4783,"G":0.1134,"H":0.0052}
-#'                ],
-#'      "time":3.3
-#'     }
-#'     
-#' @serializer qtlJSON
-#* @get /foundercoefs
-#* @post /foundercoefs
-HttpFoundercoefs <- function(req, res, dataset, id, chrom, intCovar = NULL,
-                             blup = FALSE, center = TRUE, nCores = 0,
-                             expand = FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        if (tolower(nvl(intCovar, '')) == 'additive') {
-            intCovar <- NULL
-        }
-
-        effect <- GetFoundercoefs(dataset      = dataset, 
-                                  id           = id,
-                                  chrom        = chrom, 
-                                  intCovar     = intCovar,
-                                  blup         = blup, 
-                                  center       = center, 
-                                  nCores       = nCores)
-
-        if (!(toBoolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            
-            for (element in names(effect)) {
-                colnames(effect[[element]]) <- NULL
-            }
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-
-        list(result = effect,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    # return the data
-    result
-}
-
-
-#' Get the expression
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id an identifier
-#'
-#' @return JSON data
-#'
-#' JSON data is dependent upon covariates.
-#'
-#' Example:
-#'  {"data":[{"mouse_id":"F01","Sex":"F","Generation":"G4","Litter":2,
-#'            "Diet":"hf","Coat.Color":"agouti","GenerationLitter":"G4_2",
-#'            "expression":0.2243,"_row":"F01"},
-#'           ...
-#'           {"mouse_id":"F02","Sex":"F","Generation":"G4","Litter":2,
-#'            "Diet":"hf","Coat.Color":"black","GenerationLitter":"G4_2",
-#'            "expression":0.3498,"_row":"F02"}
-#'          ]
-#'
-#' @serializer qtlJSON
-#* @get /expression
-#* @post /expression
-HttpExpression <- function(req, res, dataset, id) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        expression <- GetExpression(dataset = dataset, 
-                                    id      = id)
-        
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-        
-        list(result = expression,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-    
-    result
-}
-
-
-#' Perform mediation analysis.
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id an identifier
-#' @param mid a marker identifier
-#' @param datasetMediate the dataset identifier to mediate against
-#' @param expand TRUE to expand the JSON, FALSE to condense
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     {"result":[["ENSMUSG00000000001","Gnai3","3",108.1267,1.3625],
-#'                ["ENSMUSG00000000028","Cdc45","16",18.7962,1.605],
-#'                 ...
-#'                [ENSMUSG00000000037","Scml2","X",161.1877,1.2535]
-#'               ],
-#'      "time":10.3
-#'     }
-#'
-#' Example of expand=TRUE result:
-#'     {"result":[{"gene_id":"ENSMUSG00000000001","symbol":"Gnai3",
-#'                 "chr":"3","pos":108.1267,"LOD":1.3625},
-#'                {"gene_id":"ENSMUSG00000000028","symbol":"Cdc45",
-#'                 "chr":"16","pos":18.7962,"LOD":1.605},
-#'                 ...
-#'                {"gene_id":"ENSMUSG00000000037","symbol":"Scml2",
-#'                 "chr":"X","pos":161.1877,"LOD":1.2535}
-#'               ],
-#'      "time":10.3
-#'     }
-#'     
-#' @serializer qtlJSON
-#* @get /mediate
-#* @post /mediate
-HttpMediate <- function(req, res, dataset, id, mid, 
-                        datasetMediate = NULL, expand = FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        mediation <- GetMediate(dataset        = dataset, 
-                                id             = id,
-                                mid            = mid,
-                                datasetMediate = datasetMediate)
-
-        if (!(toBoolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            colnames(mediation) <- NULL
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-        
-        list(result = mediation,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-
-#' Perform on SNP Association mapping.
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id unique dentifier
-#' @param chrom the chromsome
-#' @param location the location in base pairs
-#' @param windowSize how many base pairs (before and after) to perform scan
-#' @param nCores number of cores to use (0=as many as there is)
-#' @param expand TRUE to expand the JSON, FALSE to condense
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     {"result":[["rs245710663","1",14.5001,
-#'                 "G|C",64,:"",
-#'                 "intergenic_variant",1,147,
-#'                 false,:0.0015],
-#'                ["rs263649601","chr":"1","pos":14.5002,
-#'                  "C|T",64,"",
-#'                  "intergenic_variant",1,147,
-#'                  false,0.0015],
-#'                 ...
-#'                ["rs32279922","chr":"1","pos":14.5004,
-#'                  "C|T",:153,:"",
-#'                  "intergenic_variant",3,:147,
-#'                  false,3.5395e-06]
-#'               ],
-#'      "time":11.1
-#'     }
-#'
-#' Example of expand=TRUE result:
-#'     {"result":[{"snp":"rs245710663","chr":"1","pos":14.5001,
-#'                 "alleles":"G|C","sdp":64,"ensembl_gene":"",
-#'                 "csq":"intergenic_variant","index":1,"interval":147,
-#'                 "on_map":false,"lod":0.0015},
-#'                 {"snp":"rs263649601","chr":"1","pos":14.5002,
-#'                 "alleles":"C|T","sdp":64,"ensembl_gene":"",
-#'                 "csq":"intergenic_variant","index":1,"interval":147,
-#'                 "on_map":false,"lod":0.0015},
-#'                 ...
-#'                 {"snp":"rs32279922","chr":"1","pos":14.5004,
-#'                  "alleles":"C|T","sdp":153,"ensembl_gene":"",
-#'                  "csq":"intergenic_variant","index":3,"interval":147,
-#'                  "on_map":false,"lod":3.5395e-06}
-#'               ],
-#'      "time":11.1
-#'     }
-#'     
-#' @serializer qtlJSON
-#* @get /snpassoc
-#* @post /snpassoc
-HTTPSnpAssocMapping <- function(req, res, dataset, id, chrom, location, 
-                                windowSize=500000, nCores=0, expand=FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-        
-        snpAssoc <- GetSnpAssocMapping(dataset    = dataset, 
-                                       id         = id,
-                                       chrom      = chrom,
-                                       location   = location,
-                                       windowSize = windowSize,
-                                       nCores     = nCores)
-
-        if (!(toBoolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            colnames(snpAssoc) <- NULL
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-        
-        list(result = snpAssoc,
-               time = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-
-#' Get LOD Peaks for a dataset
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param intCovar the interactice covar peaks
-#' @param expand TRUE to expand the JSON, FALSE to condense
-#'
-#' @return JSON data
-#' 
-#' Example of expand=FALSE result and dataset$dataType=mRNA:
-#'     {"result":[["1_100007442","1",100.0074,
-#'                 "ENSMUSG00000028028","Alpk1","3",127.7255,6.1147],
-#'                ["1_100078094","1",100.0781,
-#'                 "ENSMUSG00000024727","Trpm6","19",18.8212,6.048],
-#'                ...
-#'                ["1_100148722","1",100.1487,
-#'                 "ENSMUSG00000045725","Prr15","6",54.3286,6.5079],
-#'               ],
-#'      "time":4.9
-#'     }
-#'
-#' Example of expand=TRUE result and dataset$dataType=mRNA:
-#'     {"result":[{"marker":"1_100007442","chr":"1","pos":100.0074,
-#'                 "gene_id":"ENSMUSG00000028028","symbol":"Alpk1",
-#'                 "gene_chrom":"3","middle":127.7255,"lod":6.1147},
-#'                {"marker":"1_100078094","chr":"1","pos":100.0781,
-#'                 "gene_id":"ENSMUSG00000024727","symbol":"Trpm6",
-#'                 "gene_chrom":"19","middle":18.8212,"lod":6.048},
-#'                ...
-#'                {"marker":"1_100148722","chr":"1","pos":100.1487,
-#'                 "gene_id":"ENSMUSG00000045725","symbol":"Prr15",
-#'                 "gene_chrom":"6","middle":54.3286,"lod":6.5079}
-#'               ],
-#'      "time":4.9
-#'     }
-#'
-#' @serializer qtlJSON
-#* @get /lodpeaks
-#* @post /lodpeaks
-HttpLODPeaks <- function(req, res, dataset, intCovar = NULL, expand = FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-        
-        lodPeaks <- GetLODPeaks(dataset, intCovar)
-
-        if (!(toBoolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            colnames(lodPeaks) <- NULL
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-        
-        list(result = lodPeaks,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-#' Get LOD Peaks for a dataset
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param expand TRUE to expand the JSON, FALSE to condense
-#'
-#' @return JSON data
-#' 
-#' Example of expand=FALSE result and dataset$dataType=mRNA:
-#'     {"result":[["1_100007442","1",100.0074,
-#'                 "ENSMUSG00000028028","Alpk1","3",127.7255,6.1147],
-#'                ["1_100078094","1",100.0781,
-#'                 "ENSMUSG00000024727","Trpm6","19",18.8212,6.048],
-#'                ...
-#'                ["1_100148722","1",100.1487,
-#'                 "ENSMUSG00000045725","Prr15","6",54.3286,6.5079],
-#'               ],
-#'      "time":4.9
-#'     }
-#'
-#' Example of expand=TRUE result and dataset$dataType=mRNA:
-#'     {"result":[{"marker":"1_100007442","chr":"1","pos":100.0074,
-#'                 "gene_id":"ENSMUSG00000028028","symbol":"Alpk1",
-#'                 "gene_chrom":"3","middle":127.7255,"lod":6.1147},
-#'                {"marker":"1_100078094","chr":"1","pos":100.0781,
-#'                 "gene_id":"ENSMUSG00000024727","symbol":"Trpm6",
-#'                 "gene_chrom":"19","middle":18.8212,"lod":6.048},
-#'                ...
-#'                {"marker":"1_100148722","chr":"1","pos":100.1487,
-#'                 "gene_id":"ENSMUSG00000045725","symbol":"Prr15",
-#'                 "gene_chrom":"6","middle":54.3286,"lod":6.5079}
-#'               ],
-#'      "time":4.9
-#'     }
-#'
-#' @serializer qtlJSON
-#* @get /lodpeaksall
-#* @post /lodpeaksall
-HttpLODPeaksAll <- function(req, res, dataset, expand=FALSE) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        # get the LOD peaks for each covarint
-        additivePeaks <- GetLODPeaks(dataset)
-
-        if (!(toBoolean(expand))) {
-            colnames(additivePeaks) <- NULL
-        }
-
-        peaks <- list(additive = additivePeaks)
-        intCovars <- GetIntCovar(dataset)
-
-        for (ic in intCovars) {
-            icPeaks <- GetLODPeaks(dataset, ic)
-
-            if (!(toBoolean(expand))) {
-                colnames(icPeaks) <- NULL
-            }
-
-            peaks <- c(list(icPeaks), peaks)
-            names(peaks)[1] = ic
-        }
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-        
-        list(id     = dataset,
-             result = peaks,                 
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-#' Perform correlation on a phenotype or gene.
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id unique dentifier
-#' @param dataset the dataset identifier to correlate to
-#' @param maxItems maximum number of items to return
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     
-#' @serializer qtlJSON
-#* @get /correlation
-#* @post /correlation
-HTTPCorrelation <- function(req, res, dataset, id, 
-                            datasetCorrelate = NULL, maxItems = NULL) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        correlation <- GetCorrelation(dataset          = dataset, 
-                                      id               = id,
-                                      datasetCorrelate = datasetCorrelate,
-                                      maxItems         = maxItems)
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-            
-        list(result = correlation,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
-
-#' Perform correlation on a phenotype or gene.
-#'
-#' @param req the request object
-#' @param res the response object
-#' @param dataset the dataset identifier
-#' @param id unique dentifier
-#' @param datasetCorrelate the dataset identifier to correlate to
-#' @param idCorrelate id from correlate dataset
-#'
-#' @return JSON data
-#'
-#' Example of expand=FALSE result:
-#'     
-#' @serializer qtlJSON
-#* @get /correlationPlotData
-#* @post /correlationPlotData
-HTTPCorrelationPlotData <- function(req, res, dataset, id, 
-                                    datasetCorrelate, idCorrelate) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        correlation <- GetCorrelationPlotData(dataset          = dataset, 
-                                              id               = id,
-                                              datasetCorrelate = datasetCorrelate,
-                                              idCorrelate      = idCorrelate)
-
-        elapsed <- proc.time() - ptm
-        TrackTime(req, elapsed["elapsed"])
-
-        list(result = correlation,
-             time   = elapsed["elapsed"])
-    },
-    error = function(cond) {
-        res$status <- 400
-        list(error=jsonlite::unbox(cond$message))
-    })
-
-    result
-}
-
 
