@@ -21,26 +21,7 @@ RestRserveApp <- RestRserve::RestRserveApplication$new()
 RestRserveApp$logger <- logger
 
 
-HttpDatasetGet <- function(request, response) {
-  #' ---
-  #' description: Get dataset information.
-  #' responses:
-  #'   200:
-  #'     description: API response
-  #'     content:
-  #'       application/json:
-  #'         schema:
-  #'           type: string
-  #'           example: 5
-  #'   400:
-  #'     description: API Error
-  #'     content:
-  #'       application/json:
-  #'         schema:
-  #'           type: string
-  #'           example: Server error
-  #' ---    
-
+HttpGetDataset <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
@@ -49,6 +30,12 @@ HttpDatasetGet <- function(request, response) {
         
         elapsed <- proc.time() - ptm
         #TrackTime(req, elapsed["elapsed"])
+        #logger$trace(paste0('time: ', elapsed["elapsed"]))
+        #logger$debug(paste0('time: ', elapsed["elapsed"]))
+        #logger$info(paste0('time: ', elapsed["elapsed"]))
+        #logger$warning(paste0('time: ', elapsed["elapsed"]))
+        #logger$error(paste0('time: ', elapsed["elapsed"]))
+        #logger$fatal(paste0('time: ', elapsed["elapsed"]))
         
         response$body <- jsonlite::toJSON(list(result = datasets,
                                                time   = elapsed["elapsed"]),
@@ -66,29 +53,44 @@ HttpDatasetGet <- function(request, response) {
 
 
 
-HttpLODScanGet <- function(request, response) {
+HttpGetLODScan <- function(request, response) {
+  #' ---
+  #' get: 
+  #'   description: Get scan information.
+  #'   responses:
+  #'     200:
+  #'       description: API response
+  #'       content:
+  #'         application/json:
+  #'           schema:
+  #'             type: string
+  #'             example: 5
+  #'     400:
+  #'       description: API Error
+  #'       content:
+  #'         application/json:
+  #'           schema:
+  #'             type: string
+  #'             example: Server error
+  #' ---    
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
 
         dataset <- request$query[["dataset"]]
         id <- request$query[["id"]]
-        intCovar <- request$query[["intCovar"]]
-        nCores <- nvlInteger(request$query[["nCores"]], 5)
+        interactive.covar <- request$query[["interactive.covar"]]
+        cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
         
-        print(paste0('intCovar', intCovar))
-
-        if (tolower(nvl(intCovar, '')) == 'additive') {
-            intCovar <- NULL
+        if (tolower(nvl(interactive.covar, '')) == 'additive') {
+            interactive.covar <- NULL
         }
         
-        print(paste0('intCovar', intCovar))
-
-        lod <- GetLODScan(dataset      = dataset, 
-                          id           = id,
-                          intCovar     = intCovar,
-                          nCores       = nCores)
+        lod <- PerformLODScan(dataset           = dataset, 
+                              id                = id,
+                              interactive.covar = interactive.covar,
+                              cores             = cores)
         
         if (!(toBoolean(expand))) {
             # by setting column names to NULL, the result will be a
@@ -114,28 +116,47 @@ HttpLODScanGet <- function(request, response) {
 }
 
 
-HttpLODScanSamplesGet <- function(request, response) {
+HttpGetLODScanSamples <- function(request, response) {
+  #' ---
+  #' get: 
+  #'   description: Get scan by sample information.
+  #'   responses:
+  #'     200:
+  #'       description: API response
+  #'       content:
+  #'         application/json:
+  #'           schema:
+  #'             type: string
+  #'             example: 5
+  #'     400:
+  #'       description: API Error
+  #'       content:
+  #'         application/json:
+  #'           schema:
+  #'             type: string
+  #'             example: Server error
+  #' ---    
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
 
         dataset <- request$query[["dataset"]]
         id <- request$query[["id"]]
-        intCovar <- request$query[["intCovar"]]
+        interactive.covar <- request$query[["interactive.covar"]]
         chrom <- request$query[["chrom"]]
-        reegressLocal <- request$query[["regressLocal"]]
-        nCores <- nvlInteger(request$query[["nCores"]], 5)
+        regress.local <- request$query[["regress.local"]]
+        cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
 
-        if (tolower(nvl(intCovar, 'additive')) == 'additive') {
+        if (tolower(nvl(interactive.covar, 'additive')) == 'additive') {
             stop("intCovar should not be additive or null")
         }
         
-        lod <- GetLODScanBySample(dataset      = dataset, 
-                                  id           = id,
-                                  intCovar     = intCovar,
-                                  chrom        = chrom,
-                                  nCores       = nCores)
+        lod <- PerformLODScanBySample(dataset           = dataset, 
+                                      id                = id,
+                                      chrom             = chrom,
+                                      interactive.covar = interactive.covar,
+                                      cores             = cores)
         
         if (!(toBoolean(expand))) {
             # by setting column names to NULL, the result will be a
@@ -162,7 +183,7 @@ HttpLODScanSamplesGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpFoundercoefsGet <- function(request, response) {
+HttpGetFounderCoefsScan <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
@@ -170,23 +191,23 @@ HttpFoundercoefsGet <- function(request, response) {
         dataset <- request$query[["dataset"]]
         id <- request$query[["id"]]
         chrom <- request$query[["chrom"]]
-        intCovar <- request$query[["intCovar"]]
+        interactive.covar <- request$query[["interactive.covar"]]
         blup <- request$query[["blup"]]
         center <- request$query[["center"]]
-        nCores <- nvlInteger(request$query[["nCores"]], 5)
+        cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
 
-        if (tolower(nvl(intCovar, '')) == 'additive') {
+        if (tolower(nvl(interactive.covar, '')) == 'additive') {
             intCovar <- NULL
         }
         
-        effect <- GetFoundercoefs(dataset      = dataset, 
-                                  id           = id,
-                                  chrom        = chrom, 
-                                  intCovar     = intCovar,
-                                  blup         = blup, 
-                                  center       = center, 
-                                  nCores       = nCores)
+        effect <- PerformFounderCoefsScan(dataset           = dataset, 
+                                          id                = id,
+                                          chrom             = chrom, 
+                                          interactive.covar = interactive.covar,
+                                          blup              = blup, 
+                                          center            = center, 
+                                          cores             = cores)
         
         if (!(toBoolean(expand))) {
             # by setting column names to NULL, the result will be a
@@ -214,7 +235,7 @@ HttpFoundercoefsGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpExpressionGet <- function(request, response) {
+HttpGetExpression <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
@@ -242,22 +263,21 @@ HttpExpressionGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpMediateGet <- function(request, response) {
+HttpGetMediation <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
         
         dataset <- request$query[["dataset"]]
         id <- request$query[["id"]]
-        mid <- request$query[["mid"]]
-        datasetMediate <- request$query[["datasetMediate"]]
+        marker.id <- request$query[["marker.id"]]
+        dataset.mediate <- request$query[["dataset.mediate"]]
         expand <- request$query[["expand"]]
 
-
-        mediation <- GetMediate(dataset        = dataset, 
-                                id             = id,
-                                mid            = mid,
-                                datasetMediate = datasetMediate)
+        mediation <- PerformMediation(dataset         = dataset, 
+                                      id              = id,
+                                      marker.id       = marker.id,
+                                      dataset.mediate = dataset.mediate)
         
         if (!(toBoolean(expand))) {
             # by setting column names to NULL, the result will be a
@@ -282,7 +302,7 @@ HttpMediateGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpSnpAssocMappingGet <- function(request, response) {
+HttpGetSNPAssocMapping <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
@@ -291,27 +311,27 @@ HttpSnpAssocMappingGet <- function(request, response) {
         id <- request$query[["id"]]
         chrom <- request$query[["chrom"]]
         location <- request$query[["location"]]
-        windowSize <- nvlInteger(request$query[["windowSize"]], 500000)
-        nCores <- nvlInteger(request$query[["nCores"]], 5)
+        window.size <- nvlInteger(request$query[["window.size"]], 500000)
+        cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
 
-        snpAssoc <- GetSnpAssocMapping(dataset    = dataset, 
-                                       id         = id,
-                                       chrom      = chrom,
-                                       location   = location,
-                                       windowSize = windowSize,
-                                       nCores     = nCores)
+        snp.assoc <- PerformSNPAssocMapping(dataset     = dataset, 
+                                            id          = id,
+                                            chrom       = chrom,
+                                            location    = location,
+                                            window.size = window.size,
+                                            cores       = cores)
         
         if (!(toBoolean(expand))) {
             # by setting column names to NULL, the result will be a
             # 2 dimensional array
-            colnames(snpAssoc) <- NULL
+            colnames(snp.assoc) <- NULL
         }
         
         elapsed <- proc.time() - ptm
         #TrackTime(req, elapsed["elapsed"])
         
-        response$body <- jsonlite::toJSON(list(result = snpAssoc,
+        response$body <- jsonlite::toJSON(list(result = snp.assoc,
                                                time   = elapsed["elapsed"]),
                                           auto_unbox = TRUE)
     },
@@ -325,27 +345,27 @@ HttpSnpAssocMappingGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpLODPeaksGet <- function(request, response) {
+HttpGetLODPeaks <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
         
         dataset <- request$query[["dataset"]]
-        intCovar <- request$query[["intCovar"]]
+        interactive.covar <- request$query[["interactive.covar"]]
         expand <- request$query[["expand"]]
 
-        lodPeaks <- GetLODPeaks(dataset, intCovar)
+        lod.peaks <- GetLODPeaks(dataset, interactive.covar)
         
         if (!(toBoolean(expand))) {
             # by setting column names to NULL, the result will be a
             # 2 dimensional array
-            colnames(lodPeaks) <- NULL
+            colnames(lod.peaks) <- NULL
         }
         
         elapsed <- proc.time() - ptm
         #TrackTime(req, elapsed["elapsed"])
 
-        response$body <- jsonlite::toJSON(list(result = lodPeaks,
+        response$body <- jsonlite::toJSON(list(result = lod.peaks,
                                                time   = elapsed["elapsed"]),
                                           auto_unbox = TRUE)
 
@@ -361,7 +381,7 @@ HttpLODPeaksGet <- function(request, response) {
 }
 
 
-HttpLODPeaksAllGet <- function(request, response) {
+HttpGetLODPeaksAll <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
@@ -370,24 +390,12 @@ HttpLODPeaksAllGet <- function(request, response) {
         expand <- request$query[["expand"]]
 
         # get the LOD peaks for each covarint
-        additivePeaks <- GetLODPeaks(dataset)
+        peaks <- GetLODPeaksAll(dataset)
         
         if (!(toBoolean(expand))) {
-            colnames(additivePeaks) <- NULL
-        }
-        
-        peaks <- list(additive = additivePeaks)
-        intCovars <- GetIntCovar(dataset)
-        
-        for (ic in intCovars) {
-            icPeaks <- GetLODPeaks(dataset, ic)
-            
-            if (!(toBoolean(expand))) {
-                colnames(icPeaks) <- NULL
+            for (n in names(peaks)) {
+                colnames(peaks[[n]]) <- NULL
             }
-            
-            peaks <- c(list(icPeaks), peaks)
-            names(peaks)[1] = ic
         }
         
         elapsed <- proc.time() - ptm
@@ -408,20 +416,20 @@ HttpLODPeaksAllGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpCorrelationGet <- function(request, response) {
+HttpGetCorrelation <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
 
         dataset <- request$query[["dataset"]]
         id <- request$query[["id"]]
-        datasetCorrelate <- request$query[["datasetCorrelate"]]
-        maxItems <- request$query[["maxItems"]]
+        dataset.correlate <- request$query[["dataset.correlate"]]
+        max.items <- request$query[["max.items"]]
         
-        correlation <- GetCorrelation(dataset          = dataset, 
-                                      id               = id,
-                                      datasetCorrelate = datasetCorrelate,
-                                      maxItems         = maxItems)
+        correlation <- PerformCorrelation(dataset           = dataset, 
+                                          id                = id,
+                                          dataset.correlate = dataset.correlate,
+                                          max.items         = max.items)
         
         elapsed <- proc.time() - ptm
         #TrackTime(req, elapsed["elapsed"])
@@ -440,20 +448,20 @@ HttpCorrelationGet <- function(request, response) {
     RestRserve::forward()
 }
 
-HttpCorrelationPlotDataGet <- function(request, response) {
+HttpGetCorrelationPlot <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
         
         dataset <- request$query[["dataset"]]
         id <- request$query[["id"]]
-        datasetCorrelate <- request$query[["datasetCorrelate"]]
-        idCorrelate <- request$query[["idCorrelate"]]
+        dataset.correlate <- request$query[["dataset.correlate"]]
+        id.correlate <- request$query[["id.correlate"]]
 
-        correlation <- GetCorrelationPlotData(dataset          = dataset, 
-                                              id               = id,
-                                              datasetCorrelate = datasetCorrelate,
-                                              idCorrelate      = idCorrelate)
+        correlation <- GetCorrelationPlotData(dataset           = dataset, 
+                                              id                = id,
+                                              dataset.correlate = dataset.correlate,
+                                              id.correlate      = id.correlate)
         
         elapsed <- proc.time() - ptm
         #TrackTime(req, elapsed["elapsed"])
@@ -473,22 +481,18 @@ HttpCorrelationPlotDataGet <- function(request, response) {
 }
 
 
-RestRserveApp$add_get(path = "/datasets", FUN = HttpDatasetGet)
-RestRserveApp$add_get(path = "/lodscan", FUN = HttpLODScanGet)
-RestRserveApp$add_get(path = "/lodscansamples", FUN = HttpLODScanSamplesGet)
-RestRserveApp$add_get(path = "/foundercoefs", FUN = HttpFoundercoefsGet)
-RestRserveApp$add_get(path = "/expression", FUN = HttpExpressionGet)
-RestRserveApp$add_get(path = "/mediate", FUN = HttpMediateGet)
-RestRserveApp$add_get(path = "/snpassoc", FUN = HttpSnpAssocMappingGet)
-RestRserveApp$add_get(path = "/lodpeaks", FUN = HttpLODPeaksGet)
-RestRserveApp$add_get(path = "/lodpeaksall", FUN = HttpLODPeaksAllGet)
-RestRserveApp$add_get(path = "/correlation", FUN = HttpCorrelationGet)
-RestRserveApp$add_get(path = "/correlationPlotData", FUN = HttpCorrelationPlotDataGet)
-
-
-
-
-
+RestRserveApp$add_get(path = "/datasets", FUN = HttpGetDataset, add_head = FALSE)
+RestRserveApp$add_get(path = "/lodscan", FUN = HttpGetLODScan, add_head = FALSE)
+RestRserveApp$add_get(path = "/lodscansamples", FUN = HttpGetLODScanSamples, add_head = FALSE)
+RestRserveApp$add_get(path = "/foundercoefs", FUN = HttpGetFounderCoefsScan, add_head = FALSE)
+RestRserveApp$add_get(path = "/expression", FUN = HttpGetExpression, add_head = FALSE)
+RestRserveApp$add_get(path = "/mediate", FUN = HttpGetMediation, add_head = FALSE)
+RestRserveApp$add_get(path = "/snpassoc", FUN = HttpGetSNPAssocMapping, add_head = FALSE)
+RestRserveApp$add_get(path = "/lodpeaks", FUN = HttpGetLODPeaks, add_head = FALSE)
+RestRserveApp$add_get(path = "/lodpeaksall", FUN = HttpGetLODPeaksAll, add_head = FALSE)
+RestRserveApp$add_get(path = "/correlation", FUN = HttpGetCorrelation, add_head = FALSE)
+RestRserveApp$add_get(path = "/correlationplot", FUN = HttpGetCorrelationPlot, add_head = FALSE)
+RestRserveApp$add_static(path = "/qtl.RData", file_path = data.files[1])
 #RestRserveApp$add_openapi(path = "/openapi.yaml", file_path = "openapi.yaml")
 #RestRserveApp$add_swagger_ui(path = "/swagger", 
 #                   path_openapi = "/openapi.yaml", 
