@@ -996,7 +996,7 @@ GetLODPeaks <- function(dataset, interactive.covariate = NULL) {
             n <- ds$covar.info[ds$covar.info$sample.column == interactive.covariate, ]
             peaks <- ds$lod.peaks[[n$lod.peaks]]  
         } else {
-            stop(sprintf("covar: %s not found in %s$covar.factors", interactive.covariate, dataset))
+            stop(sprintf("covar: %s not found in %s$covar.info", interactive.covariate, dataset))
         }
     }
 

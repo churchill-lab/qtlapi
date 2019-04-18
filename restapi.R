@@ -83,7 +83,7 @@ HttpGetLODScan <- function(request, response) {
         cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
         
-        if (tolower(nvl(interactive.covar, '')) == 'additive') {
+        if (tolower(nvl(interactive.covar, '')) %in% c('', 'additive')) {
             interactive.covar <- NULL
         }
         
@@ -148,8 +148,8 @@ HttpGetLODScanSamples <- function(request, response) {
         cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
 
-        if (tolower(nvl(interactive.covar, 'additive')) == 'additive') {
-            stop("intCovar should not be additive or null")
+        if (tolower(nvl(interactive.covar, '')) %in% c('', 'additive')) {
+            stop("interactive.covar should not be additive or null")
         }
         
         lod <- PerformLODScanBySample(dataset           = dataset, 
@@ -197,10 +197,10 @@ HttpGetFounderCoefsScan <- function(request, response) {
         cores <- nvlInteger(request$query[["cores"]], 5)
         expand <- request$query[["expand"]]
 
-        if (tolower(nvl(interactive.covar, '')) == 'additive') {
-            intCovar <- NULL
+        if (tolower(nvl(interactive.covar, '')) %in% c('', 'additive')) {
+            interactive.covar <- NULL
         }
-        
+
         effect <- PerformFounderCoefsScan(dataset           = dataset, 
                                           id                = id,
                                           chrom             = chrom, 
@@ -353,6 +353,10 @@ HttpGetLODPeaks <- function(request, response) {
         dataset <- request$query[["dataset"]]
         interactive.covar <- request$query[["interactive.covar"]]
         expand <- request$query[["expand"]]
+
+        if (tolower(nvl(interactive.covar, '')) %in% c('', 'additive')) {
+            interactive.covar <- NULL
+        }
 
         lod.peaks <- GetLODPeaks(dataset, interactive.covar)
         
