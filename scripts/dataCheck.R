@@ -30,14 +30,14 @@ CheckDataset <- function(d) {
     datatype = ds[['datatype']]
     is.mrna <- FALSE
     is.protein <- FALSE
-    is.pheno <- FALSE
+    is.phenotype <- FALSE
     
     if (tolower(datatype) == 'mrna') {
         is.mrna <- TRUE
     } else if (tolower(datatype) == 'protein') {
         is.protein <- TRUE
-    } else if (isPheno(ds)) {
-        is.pheno <- TRUE
+    } else if (isPhenotype(ds)) {
+        is.phenotype <- TRUE
     } else {
         stop(paste0("datatype is '", datatype, "', but should be mRNA, protein, or phenotype"))
     }
@@ -73,55 +73,55 @@ CheckDataset <- function(d) {
         if (any(duplicated(ds$annot.protein$protein.id))) {
             stop("There are duplicated protein.id annotations in annot.protein")
         }
-    } else if (is.pheno) {
-        if ('annot.pheno' %not in% names(ds)) {
-            stop(paste0("annot.pheno not found in '", d, "'"))
+    } else if (is.phenotype) {
+        if ('annot.phenotype' %not in% names(ds)) {
+            stop(paste0("annot.phenotype not found in '", d, "'"))
         }
 
         if (!is_tibble(ds$annot.pheno)) {
-            stop(paste0("annot.pheno should be a tibble, but found ", class(ds$annot.pheno)))
+            stop(paste0("annot.phenotype should be a tibble, but found ", class(ds$annot.phenotype)))
         }
         
-        if (any(duplicated(ds$annot.pheno$data.name))) {
-            stop("There are duplicated data.name annotations in annot.pheno")
+        if (any(duplicated(ds$annot.phenotype$data.name))) {
+            stop("There are duplicated data.name annotations in annot.phenotype")
         }
     }
     
-    if (is.pheno) {
-        if ('data.name' %not in% names(ds$annot.pheno)) {
-            stop('data.name not found in annot.pheno')
-        } else if ('short.name' %not in% names(ds$annot.pheno)) {
-            warning('short.name not found in annot.pheno')
-        } else if ('R.name' %not in% names(ds$annot.pheno)) {
-            stop('R.name not found in annot.pheno')
-        } else if ('description' %not in% names(ds$annot.pheno)) {
-            stop('description not found in annot.pheno')
-        } else if ('units' %not in% names(ds$annot.pheno)) {
-            warning('units not found in annot.pheno')
-        } else if ('is.id' %not in% names(ds$annot.pheno)) {
-            stop('is.id not found in annot.pheno')
-        } else if ('category' %not in% names(ds$annot.pheno)) {
-            warning('category not found in annot.pheno')
-        } else if ('R.category' %not in% names(ds$annot.pheno)) {
-            warning('R.category not found in annot.pheno')
-        } else if ('is.numeric' %not in% names(ds$annot.pheno)) {
-            stop('is.numeric not found in annot.pheno')
-        } else if ('is.date' %not in% names(ds$annot.pheno)) {
-            warning('is.date not found in annot.pheno')
-        } else if ('is.factor' %not in% names(ds$annot.pheno)) {
-            stop('is.factor not found in annot.pheno')
-        } else if ('factor.levels' %not in% names(ds$annot.pheno)) {
-            warning('factor.levels not found in annot.pheno')
-        } else if ('is.covar' %not in% names(ds$annot.pheno)) {
-            stop('is.covar not found in annot.pheno')
-        } else if ('is.pheno' %not in% names(ds$annot.pheno)) {
-            stop('is.pheno not found in annot.pheno')
-        } else if ('is.derived' %not in% names(ds$annot.pheno)) {
-            warning('is.derived not found in annot.pheno')
-        } else if ('omit' %not in% names(ds$annot.pheno)) {
-            warning('omit not found in annot.pheno')
-        } else if ('use.covar' %not in% names(ds$annot.pheno)) {
-            stop('use.covar not found in annot.pheno')
+    if (is.phenotype) {
+        if ('data.name' %not in% names(ds$annot.phenotype)) {
+            stop('data.name not found in annot.phenotype')
+        } else if ('short.name' %not in% names(ds$annot.phenotype)) {
+            warning('short.name not found in annot.phenotype')
+        } else if ('R.name' %not in% names(ds$annot.phenotype)) {
+            stop('R.name not found in annot.phenotype')
+        } else if ('description' %not in% names(ds$annot.phenotype)) {
+            stop('description not found in annot.phenotype')
+        } else if ('units' %not in% names(ds$annot.phenotype)) {
+            warning('units not found in annot.phenotype')
+        } else if ('is.id' %not in% names(ds$annot.phenotype)) {
+            stop('is.id not found in annot.phenotype')
+        } else if ('category' %not in% names(ds$annot.phenotype)) {
+            warning('category not found in annot.phenotype')
+        } else if ('R.category' %not in% names(ds$annot.phenotype)) {
+            warning('R.category not found in annot.phenotype')
+        } else if ('is.numeric' %not in% names(ds$annot.phenotype)) {
+            stop('is.numeric not found in annot.phenotype')
+        } else if ('is.date' %not in% names(ds$annot.phenotype)) {
+            warning('is.date not found in annot.phenotype')
+        } else if ('is.factor' %not in% names(ds$annot.phenotype)) {
+            stop('is.factor not found in annot.phenotype')
+        } else if ('factor.levels' %not in% names(ds$annot.phenotype)) {
+            warning('factor.levels not found in annot.phenotype')
+        } else if ('is.covar' %not in% names(ds$annot.phenotype)) {
+            stop('is.covar not found in annot.phenotype')
+        } else if ('is.pheno' %not in% names(ds$annot.phenotype)) {
+            stop('is.pheno not found in annot.phenotype')
+        } else if ('is.derived' %not in% names(ds$annot.phenotype)) {
+            warning('is.derived not found in annot.phenotype')
+        } else if ('omit' %not in% names(ds$annot.phenotype)) {
+            warning('omit not found in annot.phenotype')
+        } else if ('use.covar' %not in% names(ds$annot.phenotype)) {
+            stop('use.covar not found in annot.phenotype')
         }
         
         # one and only 1 ID
@@ -299,12 +299,12 @@ CheckDataset <- function(d) {
     # lod.peaks
     #
     for (lp in names(ds$lod.peaks)) {
-        if (is.pheno) {
+        if (is.phenotype) {
             if (length(setdiff(ds$lod.peaks[[lp]]$data.name, ds$annot.pheno$data.name))) {
                 stop(paste0('not all lod.peaks$data.name are in annot.pheno$data.name'))
             }
         } else if (is.protein) {
-            if (length(setdiff(ds$lod.peaks[[lp]]$protein.id, ds$annot.protein$protein_id))) {
+            if (length(setdiff(ds$lod.peaks[[lp]]$protein.id, ds$annot.protein$protein.id))) {
                 stop(paste0('not all lod.peaks$protein.id are in annot.protein$protein.id'))
             }
         } else if (is.mrna) {
@@ -314,7 +314,7 @@ CheckDataset <- function(d) {
         } 
         
         if (length(setdiff(ds$lod.peaks[[lp]]$marker.id, markers$marker.id))) {
-            stop(paste0('not all lod.peaks$marker.id are in markers'))
+            warning(paste0('not all ', d, '$lod.peaks$marker.id are in markers'))
         } 
     }
     
