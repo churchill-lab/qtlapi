@@ -156,7 +156,7 @@ nvlInteger <- function(value, default) {
 #' 
 #' @return TRUE if the datatype is phenotype, FALSE otherwise
 #' 
-isPheno <- function(dataset) {
+isPhenotype <- function(dataset) {
     if (startsWith(tolower(dataset$datatype), "pheno")) {
         return(TRUE)
     }
@@ -260,8 +260,8 @@ GetDatasetInfo <- function() {
         } else if(tolower(ds$datatype) == "protein") {
             annotations <- list(ids = tibble(protein.id = ds$annot.protein$protein.id, 
                                              gene.id    = ds$annot.protein$gene.id))
-        } else if(isPheno(ds)) {
-            annotations <- as_tibble(ds$annot.pheno[which(ds$annot.pheno$omit == FALSE), ])
+        } else if(isPhenotype(ds)) {
+            annotations <- as_tibble(ds$annot.phenotype[which(ds$annot.phenotype$omit == FALSE), ])
         }
 
         temp <- list(id              = d, 
@@ -316,15 +316,15 @@ PerformLODScan <- function(dataset, id, interactive.covar = NULL, cores = 0) {
     # as scan1(intcovar=interactive.covariate)
     interactive.covariate <- NULL
 
-    if (isPheno(ds)) {
+    if (isPhenotype(ds)) {
         # get the use.covar variable from the annotations
-        i <- which(ds$annot.pheno$data.name == id)
+        i <- which(ds$annot.phenotype$data.name == id)
         
         if (gtools::invalid(i)) {
-            stop(paste0("id not found '", id, "' in annot.pheno"))
+            stop(paste0("id not found '", id, "' in annot.phenotype"))
         }
         
-        covar.str <- strsplit(ds$annot.pheno$use.covar[i], ":")[[1]]
+        covar.str <- strsplit(ds$annot.phenotype$use.covar[i], ":")[[1]]
         covar.str <- paste0("~", paste0(covar.str, collapse = "+"))
         
         # find the mouse.id column and use that to set the rownames
@@ -460,15 +460,15 @@ PerformLODScanBySample <- function(dataset, id, chrom, interactive.covar,
         samples.names <- samples.df[samples.df[[n$sample.column]] == x, ][[id.column]]
         
         # set covariates
-        if (isPheno(ds)) {
+        if (isPhenotype(ds)) {
             # get the use.covar variable from the annotations
-            i <- which(ds$annot.pheno$data.name == id)
+            i <- which(ds$annot.phenotype$data.name == id)
             
             if (gtools::invalid(i)) {
                 stop(paste0("id not found '", i, "'"))
             }
             
-            covar.str <- strsplit(ds$annot.pheno$use.covar[i], ":")[[1]]
+            covar.str <- strsplit(ds$annot.phenotype$use.covar[i], ":")[[1]]
             covar.str <- paste0("~", paste0(covar.str, collapse = "+"))
             
             # subset just the data we need
@@ -552,15 +552,15 @@ PerformFounderCoefsScan <- function(dataset, id, chrom, interactive.covar,
     num.cores = nvlInteger(cores, 0)
 
     # set covariates
-    if (isPheno(ds)) {
+    if (isPhenotype(ds)) {
         # get the use.covar variable from the annotations
-        i <- which(ds$annot.pheno$data.name == id)
+        i <- which(ds$annot.phenotype$data.name == id)
         
         if (gtools::invalid(i)) {
             stop(paste0("id not found '", i, "'"))
         }
         
-        covar.str <- strsplit(ds$annot.pheno$use.covar[i], ":")[[1]]
+        covar.str <- strsplit(ds$annot.phenotype$use.covar[i], ":")[[1]]
         covar.str <- paste0("~", paste0(covar.str, collapse = "+"))
 
         # find the mouse.id column and use that to set the rownames
@@ -788,7 +788,7 @@ PerformMediation <- function(dataset, id, marker.id, dataset.mediate = NULL) {
         annot <- ds.mediate$annot.protein[, c("protein.id", "gene.id", "symbol", "chr")]
         # must set middle_point for mediation
         annot$middle_point <- (ds.mediate$annot.protein$start + ds.mediate$annot.protein$end) / 2.0
-    } else if (isPheno(ds.mediate)) {
+    } else if (isPhenotype(ds.mediate)) {
         stop("invalid datatype to mediate against")
     } else {
         stop("invalid datatype")
@@ -912,15 +912,15 @@ PerformSNPAssocMapping <- function(dataset, id, chrom, location, window.size=500
     window.snps = index_snps(map = map, window.snps)
 
     # set covariates
-    if (isPheno(ds)) {
+    if (isPhenotype(ds)) {
         # get the use.covar variable from the annotations
-        i <- which(ds$annot.pheno$data.name == id)
+        i <- which(ds$annot.phenotype$data.name == id)
         
         if (gtools::invalid(i)) {
             stop(paste0("id not found '", i, "'"))
         }
         
-        covar.str <- strsplit(ds$annot.pheno$use.covar[i], ":")[[1]]
+        covar.str <- strsplit(ds$annot.phenotype$use.covar[i], ":")[[1]]
         covar.str <- paste0("~", paste0(covar.str, collapse = "+"))
         
         # find the mouse.id column and use that to set the rownames
@@ -942,7 +942,7 @@ PerformSNPAssocMapping <- function(dataset, id, chrom, location, window.size=500
     snppr <- genoprob_to_snpprob(genoprobs, window.snps)
 
     # finally the scan
-    if (isPheno(ds)) {
+    if (isPhenotype(ds)) {
         out.snps <- scan1(pheno     = data[, idx, drop = FALSE], 
                           kinship   = K[[sel.chr]], 
                           genoprobs = snppr, 
@@ -1030,8 +1030,8 @@ GetLODPeaks <- function(dataset, interactive.covariate = NULL) {
                       y    = temp[, c("protein.id", "gene.id", "symbol","gene.chr", "gene.pos", "lod", "marker.id")],
                       by.x = "marker.id", 
                       by.y = "marker.id"))                      
-    } else if(isPheno(ds)) {
-        temp <- merge(x    = ds$annot.pheno[,c("data.name", "short.name", "description")], 
+    } else if(isPhenotype(ds)) {
+        temp <- merge(x    = ds$annot.phenotype[,c("data.name", "short.name", "description")], 
                       y    = peaks[, c("data.name", "marker.id", "lod")], 
                       by.x = "data.name", 
                       by.y = "data.name")
@@ -1153,7 +1153,7 @@ PerformCorrelation <- function(dataset, id,
                            chr     = ds.correlate$annot.protein$chr[match(names(pcor), ds.correlate$annot.protein$protein.id)],
                            start   = ds.correlate$annot.protein$start[match(names(pcor), ds.correlate$annot.protein$protein.id)],
                            end     = ds.correlate$annot.protein$end[match(names(pcor), ds.correlate$annot.protein$protein.id)])))
-    } else if (isPheno(ds.correlate)) {
+    } else if (isPhenotype(ds.correlate)) {
         return (as_tibble(data.table(cor    = pcor, 
                            id     = names(pcor))))
     }
