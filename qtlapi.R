@@ -324,15 +324,20 @@ PerformLODScan <- function(dataset, id, interactive.covar = NULL, cores = 0) {
             stop(paste0("id not found '", id, "' in annot.phenotype"))
         }
         
+        # convert samples to data.frame becomes QTL2 relies heavily
+        # on rownames and colnames, rownames will/are deprecated in
+        # tibbles
+        samples.df <- as.data.frame(ds$annot.samples)
+        
+        # extract the index of the column that contains some variation of 'mouse.id'
+        id.column <- match('mouse.id', tolower(colnames(samples.df)))
+        
+        # set the rownames so scan1 will work
+        rownames(samples.df) <- samples.df[, id.column]        
+
         covar.str <- strsplit(ds$annot.phenotype$use.covar[i], ":")[[1]]
         covar.str <- paste0("~", paste0(covar.str, collapse = "+"))
-        
-        # find the mouse.id column and use that to set the rownames
-        # this has to be done for the checks in scan1
-        temp.samples <- as.data.frame(ds$annot.samples)
-        id.column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
-        rownames(temp.samples) <- ds$annot.samples[[id.column]]
-        covar <- model.matrix(as.formula(covar.str), data = temp.samples)[, -1, drop = FALSE]
+        covar <- model.matrix(as.formula(covar.str), data = samples.df)[, -1, drop = FALSE]
     } else {
         covar <- NULL
         
@@ -436,27 +441,25 @@ PerformLODScanBySample <- function(dataset, id, chrom, interactive.covar,
         stop(sprintf("covar: %s not found in %s$covar.info", interactive.covar, dataset))
     }
 
-    # convert samples to data.frame
+    # convert samples to data.frame becomes QTL2 relies heavily
+    # on rownames and colnames, rownames will/are deprecated in
+    # tibbles
     samples.df <- as.data.frame(ds$annot.samples)
-
+    
     # extract the index of the column that contains some variation of 'mouse.id'
-    # NOTE: this is necessary because rownames are deprecated in tibbles
     id.column <- match('mouse.id', tolower(colnames(samples.df)))
     
+    # set the rownames so scan1 will work
+    rownames(samples.df) <- samples.df[, id.column]        
+
     # retrieve the covar.info row for the interactive.covar
     n <- ds$covar.info[ds$covar.info$sample.column == interactive.covar, ]
-    
-    # retrieve all the samples and the value for interactive.covar
-    sampleValues <- samples.df[, n$sample.column, drop = FALSE]
-
-    rownames(samples.df) <- ds$annot.samples[[id.column, ]]
     
     ret <- list()
 
     # loop through the unique values for the interactive.covar
     for (x in covar.categories[[interactive.covar]]) {
-        # samples.idxs and samples.names will contain ONLY the samples that match x
-        samples.idxs <- which(samples.df[[n$sample.column]] == x)
+        # samples.names will contain ONLY the samples that match x
         samples.names <- samples.df[samples.df[[n$sample.column]] == x, ][[id.column]]
         
         # set covariates
@@ -483,7 +486,7 @@ PerformLODScanBySample <- function(dataset, id, chrom, interactive.covar,
         covar <- covar[, -which(grepl(n$covar.column, colnames(covar)))]
 
         temp <- scan1(genoprobs = genoprobs[samples.names, chrom],
-                      kinship   = K[[chrom]][samples.names, samples.idxs],
+                      kinship   = K[[chrom]][samples.names, samples.names],
                       pheno     = data[samples.names, idx, drop = FALSE],
                       addcovar  = covar, 
                       cores     = num.cores,
@@ -560,15 +563,22 @@ PerformFounderCoefsScan <- function(dataset, id, chrom, interactive.covar,
             stop(paste0("id not found '", i, "'"))
         }
         
+        # convert samples to data.frame becomes QTL2 relies heavily
+        # on rownames and colnames, rownames will/are deprecated in
+        # tibbles
+        samples.df <- as.data.frame(ds$annot.samples)
+        
+        # extract the index of the column that contains some variation of 'mouse.id'
+        id.column <- match('mouse.id', tolower(colnames(samples.df)))
+        
+        # set the rownames so scan1 will work
+        rownames(samples.df) <- samples.df[, id.column]        
+        
         covar.str <- strsplit(ds$annot.phenotype$use.covar[i], ":")[[1]]
         covar.str <- paste0("~", paste0(covar.str, collapse = "+"))
 
-        # find the mouse.id column and use that to set the rownames
-        # this has to be done for the checks in scan1
-        temp.samples <- as.data.frame(ds$annot.samples)
-        id.column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
-        rownames(temp.samples) <- ds$annot.samples[[id.column]]
-        covar <- model.matrix.lm(as.formula(covar.str), data = temp.samples, na.action=na.pass)[, -1, drop = FALSE]
+        covar <- model.matrix.lm(as.formula(covar.str), data = samples.df, na.action=na.pass)
+        covar <- covar[, -1, drop=FALSE]
     } else {
         covar <- NULL
         
@@ -624,36 +634,39 @@ PerformFounderCoefsScan <- function(dataset, id, chrom, interactive.covar,
             }
         }
         
+        # convert samples to data.frame becomes QTL2 relies heavily
+        # on rownames and colnames, rownames will/are deprecated in
+        # tibbles
+        samples.df <- as.data.frame(ds$annot.samples)
+        
+        # extract the index of the column that contains some variation of 'mouse.id'
+        id.column <- match('mouse.id', tolower(colnames(samples.df)))
+        
+        # set the rownames so scan1 will work
+        rownames(samples.df) <- samples.df[, id.column]        
+        
         # retrieve all the samples and the value for interactive.covar
         n <- ds$covar.info[ds$covar.info$sample.column == interactive.covar, ]
 
         # loop through interactive.covar's unique values
         for (x in covar.categories[[interactive.covar]]) {
-            # samplesIdx will contain ONLY the samples that match x
-
-            temp.samples <- as.data.frame(ds$annot.samples)
-            id.column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
-            rownames(temp.samples) <- ds$annot.samples[[id.column]]
-            samples.idxs <- temp.samples[temp.samples[[n$sample.column]] == x, ][[id.column]]
-
-            # subset the covars
-            #covar.subset <- covar[samples.idxs, , drop = FALSE]
-            covar.subset <- covar#[samples.idxs, , drop = FALSE]
-
+            # samples.names will contain ONLY the samples that match x
+            samples.names <- samples.df[samples.df[[n$sample.column]] == x, ][[id.column]]
+            
             # exclude covar columns that contain it's name
-            covar.subset <- covar.subset[, -which(grepl(n$covar.column, colnames(covar.subset)))]
+            covar.subset <- covar[, -which(grepl(n$covar.column, colnames(covar)))]
 
             if (toBoolean(blup)) {
-                temp <- scan1blup(genoprobs = genoprobs[samples.idxs, chrom],
-                                  pheno     = data[samples.idxs, idx, drop = FALSE],
-                                  kinship   = K[[chrom]][samples.idxs, samples.idxs],
-                                  addcovar  = covar.subset[samples.idxs, , drop = FALSE],
+                temp <- scan1blup(genoprobs = genoprobs[samples.names, chrom],
+                                  pheno     = data[samples.names, idx, drop = FALSE],
+                                  kinship   = K[[chrom]][samples.names, samples.names],
+                                  addcovar  = covar.subset[samples.names, , drop = FALSE],
                                   cores     = numCores)
             } else {
-                temp <- scan1coef(genoprobs = genoprobs[samples.idxs, chrom],
-                                  pheno     = data[samples.idxs, idx, drop = FALSE],
-                                  kinship   = K[[chrom]][samples.idxs, samples.idxs],
-                                  addcovar  = covar.subset[samples.idxs, , drop = FALSE])
+                temp <- scan1coef(genoprobs = genoprobs[samples.names, chrom],
+                                  pheno     = data[samples.names, idx, drop = FALSE],
+                                  kinship   = K[[chrom]][samples.names, samples.names],
+                                  addcovar  = covar.subset[samples.names, , drop = FALSE])
             }
 
             if (toBoolean(center)) {
