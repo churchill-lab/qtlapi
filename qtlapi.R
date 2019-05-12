@@ -51,7 +51,8 @@ if (debug.mode) {
     print('DEBUG MODE: Make sure the data is loaded and db.file is defined')
 } else {
     print("Finding the data file...")
-    data.files <- list.files("/app/qtlapi/data", "*.RData", full.names=TRUE)
+    data.files <- list.files("/app/qtlapi/data", "\\.RData$", 
+                             ignore.case=TRUE, full.names=TRUE)
 
     if (length(data.files) == 0) {
         stop("There needs to be an .RData file in /app/qtlapi/data")
@@ -63,7 +64,8 @@ if (debug.mode) {
 
     load(data.files, .GlobalEnv)
 
-    db.file <- list.files("/app/qtlapi/data", "*.sqlite", full.names=TRUE)
+    db.file <- list.files("/app/qtlapi/data", "\\.sqlite$", 
+                          ignore.case=TRUE, full.names=TRUE)
 
     if (length(db.file) == 0) {
         stop("There needs to be an .sqlite file in /app/qtlapi/data")
