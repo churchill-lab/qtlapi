@@ -3,7 +3,7 @@ library(dplyr)
 library(intermediate)
 library(jsonlite)
 library(qtl2)
-library(qtl2db)
+#library(qtl2db)
 library(RSQLite)
 library(pryr)
 
