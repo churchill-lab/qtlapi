@@ -1311,12 +1311,17 @@ get_correlation_plot_data <- function(dataset, id,
                                       variables_compare  = interactive_covariate,
                                       use_qr             = TRUE)
         
+        x <- data[, 1]
+        y <- data_correlate[, idx_correlate]
+    } else {
+        x <- data[, idx]
+        y <- data_correlate[, idx_correlate]
     }
     
     ret_data <- 
         as_tibble(data.frame(mouse.id         = rownames(data), 
-                             x                = data[, idx], 
-                             y                = data_correlate[, idx_correlate],
+                             x                = x, 
+                             y                = y,
                              sample_info,
                              stringsAsFactors = FALSE))
 
