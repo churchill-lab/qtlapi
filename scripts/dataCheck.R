@@ -1,224 +1,395 @@
-args = commandArgs(trailingOnly=TRUE)
 
-if (length(args) != 1) {
-    stop("Please pass in the name of the data file")
+GetDatasets <- function() {
+    # grab the datasets in the environment
+    datasets <- grep('^dataset*', apropos('dataset\\.'), value=TRUE)
+    return(datasets)
 }
 
-rdatafile <- args[1]
-print(paste0("Loading ", rdatafile))
-load(rdatafile)
+CheckDataset <- function(d) {
+    # get the dataset
+    ds <- NA
+    
+    if (exists(d)) {
+        ds <- get(d)
+    }
 
-IsVariableOK <- function(varName, varClass, varRequired) {
-    # Check if varable is good 
-    # 
-    #  Example: exists('genome_build')
-    #           class(genome_build) == 'character'
-    #
-    if ((varRequired) && (!exists(varName))) {
-        print(paste0('ERROR: ', varName, ' does not exist, but should'))
-        return (FALSE)
+    if (gtools::invalid(ds)) {
+        stop(paste0("dataset not found '", d, '"'))
+    } 
+    
+    print(paste0("Checking dataset '", d, "'"))
+    
+    if (!is.list(ds)) {
+        stop(paste0("dataset should be a list, but found '", class(d), "'"))
+    }
+    
+    if ('datatype' %not in% names(ds)) {
+        stop("dataset must contain 'datatype'")
+    }
+    
+    datatype = ds[['datatype']]
+    is.mrna <- FALSE
+    is.protein <- FALSE
+    is.phenotype <- FALSE
+    
+    if (tolower(datatype) == 'mrna') {
+        is.mrna <- TRUE
+    } else if (tolower(datatype) == 'protein') {
+        is.protein <- TRUE
+    } else if (isPhenotype(ds)) {
+        is.phenotype <- TRUE
     } else {
-        classesFound <- class(get(varName))
-        if (!any(varClass == classesFound)) {            
-            print(paste0('ERROR: ', varName, ' is type ', classesFound, ', not ', varClass))
-            return (FALSE)
+        stop(paste0("datatype is '", datatype, "', but should be mRNA, protein, or phenotype"))
+    }
+
+    ###########################################################################
+    #
+    # annotations
+    #
+    ###########################################################################
+    print("Checking annotations")
+    
+    if (is.mrna) {
+        if ('annot.mrna' %not in% names(ds)) {
+            stop(paste0("annot.mrna not found in '", d, "'"))
+        }
+
+        if (!is_tibble(ds$annot.mrna)) {
+            stop(paste0("annot.mrna should be a tibble, but found '", class(ds$annot.mrna), "'"))
+        }
+        
+        if (any(duplicated(ds$annot.mrna$gene.id))) {
+            stop("There are duplicated gene.id annotations in annot.mrna")
+        }
+    } else if (is.protein) {
+        if ('annot.protein' %not in% names(ds)) {
+            stop(paste0("annot.protein not found in '", d, "'"))
+        }
+        
+        if (!is_tibble(ds$annot.protein)) {
+            stop(paste0("annot.protein should be a tibble, but found ", class(ds$annot.protein)))
+        }
+        
+        if (any(duplicated(ds$annot.protein$protein.id))) {
+            stop("There are duplicated protein.id annotations in annot.protein")
+        }
+    } else if (is.phenotype) {
+        if ('annot.phenotype' %not in% names(ds)) {
+            stop(paste0("annot.phenotype not found in '", d, "'"))
+        }
+
+        if (!is_tibble(ds$annot.pheno)) {
+            stop(paste0("annot.phenotype should be a tibble, but found ", class(ds$annot.phenotype)))
+        }
+        
+        if (any(duplicated(ds$annot.phenotype$data.name))) {
+            stop("There are duplicated data.name annotations in annot.phenotype")
         }
     }
-    return (TRUE)
-}   
     
-CheckVariables <- function() {
-    # Check to see if the variables exist and the of the correct type
-
-    # grab the datasets in the environment
-    datasets <- grep('^dataset*', apropos('dataset\\.'), value=TRUE)
-
-    if (length(datasets) == 0) {
-        print('ERROR: No datasets found')
+    if (is.phenotype) {
+        if ('data.name' %not in% names(ds$annot.phenotype)) {
+            stop('data.name not found in annot.phenotype')
+        } else if ('short.name' %not in% names(ds$annot.phenotype)) {
+            warning('short.name not found in annot.phenotype')
+        } else if ('R.name' %not in% names(ds$annot.phenotype)) {
+            stop('R.name not found in annot.phenotype')
+        } else if ('description' %not in% names(ds$annot.phenotype)) {
+            stop('description not found in annot.phenotype')
+        } else if ('units' %not in% names(ds$annot.phenotype)) {
+            warning('units not found in annot.phenotype')
+        } else if ('is.id' %not in% names(ds$annot.phenotype)) {
+            stop('is.id not found in annot.phenotype')
+        } else if ('category' %not in% names(ds$annot.phenotype)) {
+            warning('category not found in annot.phenotype')
+        } else if ('R.category' %not in% names(ds$annot.phenotype)) {
+            warning('R.category not found in annot.phenotype')
+        } else if ('is.numeric' %not in% names(ds$annot.phenotype)) {
+            stop('is.numeric not found in annot.phenotype')
+        } else if ('is.date' %not in% names(ds$annot.phenotype)) {
+            warning('is.date not found in annot.phenotype')
+        } else if ('is.factor' %not in% names(ds$annot.phenotype)) {
+            stop('is.factor not found in annot.phenotype')
+        } else if ('factor.levels' %not in% names(ds$annot.phenotype)) {
+            warning('factor.levels not found in annot.phenotype')
+        } else if ('is.covar' %not in% names(ds$annot.phenotype)) {
+            stop('is.covar not found in annot.phenotype')
+        } else if ('is.pheno' %not in% names(ds$annot.phenotype)) {
+            stop('is.pheno not found in annot.phenotype')
+        } else if ('is.derived' %not in% names(ds$annot.phenotype)) {
+            warning('is.derived not found in annot.phenotype')
+        } else if ('omit' %not in% names(ds$annot.phenotype)) {
+            warning('omit not found in annot.phenotype')
+        } else if ('use.covar' %not in% names(ds$annot.phenotype)) {
+            stop('use.covar not found in annot.phenotype')
+        }
+        
+        # one and only 1 ID
+        a.id <- ds$annot.pheno[which(ds$annot.pheno$is.id == TRUE),]$R.name    
+        
+        if(length(a.id) != 1) {
+            stop('annot.pheno$is.id should have 1 and only 1 row set to TRUE')
+        }
+    } else {
+        annot <- NULL
+        annot.name <- NULL
+        
+        if (is.protein) {
+            if ('protein.id' %not in% names(ds$annot.protein)) {
+                stop('protein.id not found in annot.protein')
+            }
+            annot <- ds$annot.protein
+            annot.name <- 'annot.protein'
+        } else {
+            annot <- ds$annot.mrna
+            annot.name <- 'annot.mrna'
+        }
+        
+        if ('gene.id' %not in% names(annot)) {
+            stop(paste('gene.id not found in ', annot.name))
+        } else if ('symbol' %not in% names(annot)) {
+            warning(paste('symbol not found in ', annot.name))
+        } else if ('chr' %not in% names(annot)) {
+            warning(paste('chr not found in ', annot.name))
+        } else if ('start' %not in% names(annot)) {
+            stop(paste('start not found in ', annot.name))
+        } else if ('end' %not in% names(annot)) {
+            stop(paste('end not found in ', annot.name))
+        } else if ('strand' %not in% names(annot)) {
+            warning(paste('strand not found in ', annot.name))
+        } else if ('middle' %not in% names(annot)) {
+            warning(paste('strand not found in ', annot.name))
+        } else if ('nearest.marker.id' %not in% names(annot)) {
+            stop(paste('nearest.marker.id not found in ', annot.name))
+        }
     }
     
-    # expected 
-    allNames <- c('ensembl.version', 'genoprobs', 'K', 'map', 'markers', datasets)
-    allClasses <- c('numeric', 'calc_genoprob', 'list', 'list', 'data.frame', rep('list', length(datasets)))
-    allRequired <- c(rep(TRUE, length(allNames)))
+    ###########################################################################
+    #
+    # samples
+    #
+    ###########################################################################
+    print("Checking annot.samples")
     
-    # construct the data.frame
-    dataCheck <- data.frame(name=allNames, class=allClasses, required=allRequired, stringsAsFactors=FALSE)
+    if ('annot.samples' %not in% names(ds)) {
+        stop('annot.samples not found')
+    }
     
-    # check the variables
-    errors <- mapply(IsVariableOK, dataCheck$name, dataCheck$class, dataCheck$required)
-}
-
-CheckDatasets <- function() {
-    # Check to see if the names in each dataset exist and the of the correct class
-
-    # grab the datasets in the environment
-    datasets <- grep('^dataset*', apropos('dataset\\.'), value=TRUE)
-
-    # expected elements
-    phenoNames   <- c('annots',     'covar',  'covar.factors', 'datatype',  'display.name', 'lod.peaks',  'pheno',  'samples')
-    phenoClasses <- c('data.frame', 'matrix', 'data.frame',    'character', 'character',    'data.frame', 'data.frame', 'data.frame')
-    phenoRequired <- c(TRUE,         TRUE,     TRUE,            TRUE,        FALSE,          TRUE,         TRUE,     TRUE)
+    if (!is_tibble(ds$annot.sample)) {
+        stop(paste0("annot.samples should be a tibble, but found ", class(ds$annot.sample)))
+    }
     
-    mrnaNames   <- c('annots',     'covar',    'covar.factors', 'datatype',  'display.name', 'expr',   'lod.peaks',  'raw',    'samples')
-    mrnaClasses <- c('data.frame', 'matrix',   'data.frame',    'character', 'character',    'matrix', 'data.frame', 'matrix', 'data.frame')
-    mrnaRequired <- c(TRUE,         TRUE,      TRUE,            TRUE,         FALSE,         TRUE,      TRUE,         FALSE,    TRUE)
+    id.column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
+    if (gtools::invalid(id.column)) {
+        stop('mouse.id not found in annot.samples')
+    }
     
-    # construct the data.frame
-    dataCheck <- data.frame(name=mrnaNames, class=mrnaClasses, required=mrnaRequired, stringsAsFactors=FALSE)
     
-    # be explicit to the end user, we could have used mapply and some trickery, but this is simple
-    for (d in datasets) {
-
-        dataset <- get(d)
+    ###########################################################################
+    #
+    # covar.info
+    #
+    ###########################################################################
+    print("Checking covar.info")
+    
+    if ('covar.info' %not in% names(ds)) {
+        stop('covar.info not found')
+    }
+    
+    if (!is_tibble(ds$covar.info)) {
+        stop(paste0("covar.info should be a tibble, but found '", class(ds$covar.info), "'"))
+    }
+    
+    if ('sample.column' %not in% names(ds$covar.info)) {
+        stop('sample.column not found in covar.info')
+    } else if ('covar.column' %not in% names(ds$covar.info)) {
+        stop('covar.column not found in covar.info')
+    } else if ('display.name' %not in% names(ds$covar.info)) {
+        stop('display.name not found in covar.info')
+    } else if ('interactive' %not in% names(ds$covar.info)) {
+        stop('interactive not found in covar.info')
+    } else if ('primary' %not in% names(ds$covar.info)) {
+        stop('primary not found in covar.info')
+    } else if ('lod.peaks' %not in% names(ds$covar.info)) {
+        stop('lod.peaks not found in covar.info')
+    }
+    
+    for(i in 1:nrow(ds$covar.info)) {
+        row <- ds$covar.info[i, ]
         
-        if (!('datatype' %in% names(dataset))) {
-            print(paste0('ERROR: data_type missing for dataset:', d))
-            print(paste0('ERROR: Skipping rest of check for dataset:', d))
-            next
+        if (row$sample.column %not in% colnames(ds$annot.samples)) {
+            stop(paste0("covar.factors$sample.column ('", row$column.name, "') is not a column name in annot.samples"))
         }
         
-        dataType = dataset[['datatype']]
-        
-        if (!(dataType %in% c('protein', 'mRNA', 'phenotype'))) {
-            print(paste0('ERROR: data_type of ', dataType, ' is invalid in dataset: ', d))
-            print('ERROR: data_type should be mRNA, protein, or pheno')
-            print(paste0('ERROR: Skipping rest of check for dataset: ', d))
-            next
+        if (!any(grepl(row$covar.column, colnames(ds$covar.matrix)))) {
+            stop(paste0("covar.info$covar.column ('", row$covar.column, "') is not a match to a column in covar.matrix"))
         }
-
-        nameList <- phenoNames
-        classList <- phenoClasses
-        requiredList <- phenoRequired
         
-        if (dataType %in% c('protein', 'mRNA')) {
-            nameList <- mrnaNames
-            classList <- mrnaClasses
-            requiredList <- mrnaRequired
+        if (gtools::invalid(row$display.name)) {
+            stop("covar.info$display.name needs to have a value")
         }
-            
-        # look at the names and classes in the list
-        for (n in c(1:length(nameList))) {
-            varName <- nameList[n]
-            className <- classList[n]
-            required <- requiredList[n]
-                
-            if ((required) && (!(varName %in% names(dataset)))) {
-                print(paste0('ERROR: ', varName, ' does not exist in dataset: ', d))
+        
+        if (row$interactive) {
+            if (gtools::invalid(row$lod.peaks)) {
+                stop("covar.info$interactive is TRUE, but covar.info$lod.peaks is NA")
             } else {
-                classesFound <- class(dataset[[varName]])
-                if (!any(className == classesFound)) {            
-                    print(paste0('ERROR: ', varName, ' is type: ', classesFound, ', should be type: ', className, ', in dataset: ', d))
+                # check for existance of lod.peaks
+                if (gtools::invalid(ds$lod.peaks[[row$lod.peaks]])) {
+                    stop(paste0("covar.info$interactive is TRUE, but covar.info$lod.peaks ('", row$lod.peaks, "') is not in lod.peaks"))
                 }
             }
+        } else {
+            if (!gtools::invalid(row$lod.peaks)) {
+                stop(paste0("covar.info$interactive is FALSE, but covar.info$lod.peaks ('", row$lod.peaks, "') is set"))
+            }
         }
-
-        CheckDataNames(name = d, ds = dataset)
     }
-}
+    
+    if (!any(ds$covar.info$primary)) {
+        stop("covar.info$primary needs at least 1 value set to TRUE")
+    }
+    
+    
+    ###########################################################################
+    #
+    # covar.matrix
+    #
+    ###########################################################################
+    print("Checking covar.matrix")
+    
+    if ('covar.matrix' %not in% names(ds)) {
+        stop('covar.matrix not found')
+    }
+    
+    if (!is.matrix(ds$covar.matrix)) {
+        stop(paste0("covar.matrix should be a matrix, but found '", class(ds$covar.matrix), "'"))
+    }
+    
+    ###########################################################################
+    #
+    # display.name
+    #
+    ###########################################################################
+    print("Checking display.name")
 
-
-# Verify that the sample IDs and marker IDs match between all of the objects in a dataset.
-# This assumes that the dataset has already been checked to contain 'datatype'.
-# Arguments: name: character string contianing the dataset name.
-#            ds: list containing the dataset object.
-CheckDataNames <- function(name, ds) {
-
-    if(ds$datatype == "phenotype") {
-
-        # Get the column names for the phenotypes and non-phenotypes by looking at the "is_pheno"
-        # column in annots.
-        names.pheno     = ds$annots$R_name[ds$annots$is_pheno == TRUE]
-        names.not.pheno = ds$annots$R_name[ds$annots$is_pheno == FALSE]
-
-        # Phenotype names in phenotype annotation.
-        if(!all(names.pheno %in% colnames(ds$pheno))) {
-            wh = setdiff(names.pheno, colnames(ds$pheno))
-            print(paste0("ERROR: ", name, " : the following column names in \'annots\' ",
-                  "were not found in \'pheno\'."))
-            print(paste(wh, collapse = ", "))
-        }
-
-        # Samples column names in phenotype annotation.
-        if(!all(names.not.pheno %in% colnames(ds$samples))) {
-            wh = setdiff(names.not.pheno, colnames(ds$samples))
-            print(paste0("ERROR: ", name, " : the following column names in \'annots\' ",
-                  "were not found in \'samples\'."))
-            print(paste(wh, collapse = ", "))
+    if ('display.name' %not in% names(ds)) {
+        warning('display.name not found, will use dataset name')
+    }
+    
+    ###########################################################################
+    #
+    # lod.peaks
+    #
+    ###########################################################################
+    print("Checking lod.peaks")
+    
+    if ('lod.peaks' %not in% names(ds)) {
+        stop('lod.peaks not found')
+    }
+    
+    if (!is.list(ds$lod.peaks)) {
+        stop(paste0("lod.peaks should be a list, but found ", class(ds$lod.peaks)))
+    }
+    
+    if ('additive' %not in% names(ds$lod.peaks)) {
+        stop("additive should be an element in lod.peaks")
+    }
+    
+    #
+    # lod.peaks
+    #
+    for (lp in names(ds$lod.peaks)) {
+        if (is.phenotype) {
+            if (length(setdiff(ds$lod.peaks[[lp]]$data.name, ds$annot.pheno$data.name))) {
+                stop(paste0('not all lod.peaks$data.name are in annot.pheno$data.name'))
+            }
+        } else if (is.protein) {
+            if (length(setdiff(ds$lod.peaks[[lp]]$protein.id, ds$annot.protein$protein.id))) {
+                stop(paste0('not all lod.peaks$protein.id are in annot.protein$protein.id'))
+            }
+        } else if (is.mrna) {
+            if (length(setdiff(ds$lod.peaks[[lp]]$gene.id, ds$annot.mrna$gene.id))) {
+                stop(paste0('not all lod.peaks$gene.id are in annot.mrna$gene.id'))
+            }
+        } 
+        
+        if (length(setdiff(ds$lod.peaks[[lp]]$marker.id, markers$marker.id))) {
+            warning(paste0('not all ', d, '$lod.peaks$marker.id are in markers'))
+        } 
+    }
+    
+    
+    
+    ###########################################################################
+    #
+    # data
+    #
+    ###########################################################################
+    print("Checking data")
+    
+    if ('data' %not in% names(ds)) {
+        stop('data not found')
+    }
+    
+    if (is.matrix(ds$data)) {
+        
+    } else if (is.list(ds$data)) {
+        data.found <- FALSE
+        if (any(c('rz','norm','log','transformed','raw') %in% tolower(names(ds$data)))) {
+            data.found <- TRUE
         }
         
-        # Sample IDs match everywhere.
-        if(!all(rownames(ds$pheno) %in% rownames(ds$covar))) {
-            print(paste("ERROR: ", name,": Samples IDs do not match between pheno and covar."))
+        if (!data.found) {
+            stop("'rz','norm','log','transformed', OR 'raw' NOT found in data, must be ONE of them")
         }
-
-        if(!all(rownames(ds$pheno) %in% rownames(genoprobs[[1]]))) {
-            print(paste("ERROR: ", name,": Samples IDs do not match between pheno and genoprobs."))
-        }
-
-    } else if(ds[["datatype"]] == "mRNA" | ds[["datatype"]] == "protein"){
-
-        # TODO: Fill this in.
-
-    } else {
-        stop("ERROR: Bad datatype for dataset.")
     }
+    
+    
+    
+    
+
 }
 
-
-CheckExtraVars <- function(allNames) {
-
-    # Check for extra variables
-    expectedNames <- c('genome.build', 'genoprobs', 'K', 'map', 'markers',
-                       grep('^dataset*', apropos('dataset\\.'), value=TRUE))
+PerformChecks <- function() {
+    datasets <- GetDatasets()
     
-    extraNames <- setdiff(allNames, expectedNames)
-    if (length(extraNames) > 0) {
-        print('Warning: the following extra variables were found...')
-        print(extraNames)
+    if (gtools::invalid(datasets)) {
+        stop("No datasets found!")
     }
-
-    if(any(!expectedNames[1:5] %in% allNames)) {
-        wh <- which(!(expectedNames[1:5] %in% allNames))
-        print(paste0("ERROR: The followign required variables not found..."))
-        print(paste(expectedNames[wh], collapse = ", "))
-    }
-
-    # At this point, genoprobs, K, map and markers are in the environment.
-
-    # Check Sample IDs for genoprobs and K.
+    
+    # Check genoprobs and K.
     if(length(genoprobs) != length(K)) {
-        print(paste0("ERROR: genoprobs (", length(genoprobs), ") and K (", length(K), ") do not have the same length."))
+        stop(paste0("genoprobs (", length(genoprobs), ") and K (", length(K), ") do not have the same length."))
     } else {
         if(any(names(genoprobs) != names(K))) {
-            print("ERROR: names of genoprobs and K do not match.")
-            print(paste("names(genoprobs) =", paste(names(genoprobs), collpase = ", ")))
-            print(paste("names(K) =", paste(names(K), collpase = ", ")))
+            stop("names of genoprobs and K do not match.")
         }
-
+        
         rownames.eq <- mapply(function(x, y) { all(rownames(x) == rownames(y)) }, genoprobs, K)
         if(any(rownames.eq == FALSE)) {
-            print("ERROR: sample IDs do not match between genoprobs and K.")
+            stop("sample IDs do not match between genoprobs and K.")
         }
     }
-
-    # Check Marker IDs for genoprobs and map.
+    
+    # Check Marker IDs for genoprobs and map
     if(length(genoprobs) != length(map)) {
-        print(paste0("ERROR: genoprobs (", length(genoprobs), ") and map (", length(map), ") do not have the same length."))
+        stop(paste0("genoprobs (", length(genoprobs), ") and map (", length(map), ") do not have the same length."))
     } else {
         rownames.eq <- mapply(function(x, y) { all(dimnames(x)[[3]] == names(y)) }, genoprobs, map)
         if(any(rownames.eq == FALSE)) {
-            print("ERROR: marker names do not match between genoprobs and map.")
+            stop("marker names do not match between genoprobs and map.")
         }
     }
-
+    
     # Check dimensions of markers and map.
     map.length = sum(sapply(map, length))
     if(map.length != nrow(markers)) {
-        print(paste("ERROR: Number of rows in markers (", nrow(markers), ") does not equal the number of markers in map (", map.length, ")",))
+        stop(paste("Number of rows in markers (", nrow(markers), ") does not equal the number of markers in map (", map.length, ")"))
+    }        
+    
+    for (ds in datasets) {
+        CheckDataset(ds)
     }
 }
 
-
-
-CheckDatasets()
+PerformChecks()

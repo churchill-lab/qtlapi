@@ -1,1 +1,12 @@
+<<<<<<< HEAD
+.DS_Store
 data
+packrat
+.Rhistory
+.Rproj*
+
+=======
+data
+packrat/lib*/
+>>>>>>> 78cfe1ab9c18daa06e796b93b87525bee8be5f70
+.Rproj.user
