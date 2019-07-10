@@ -720,7 +720,7 @@ get_expression <- function(dataset, id) {
 }    
 
 
-#' Perofrm mediation
+#' Perform mediation
 #' 
 #' @param dataset The dataset identifier.
 #' @param id The identifier.
