@@ -3,8 +3,8 @@ LABEL maintainer="Matthew Vincent <mattjvincent@gmail.com>" \
 	  version="0.4.4"
 
 # install the dependencies
-RUN R -e 'devtools::install_version("missMDA", version = "1.13")' \
- && R -e 'devtools::install_version("dbplyr", version = "1.2.2")' \
+RUN R -e 'devtools::install_version("missMDA", version = "1.14")' \
+ && R -e 'devtools::install_version("dbplyr", version = "1.4.2")' \
  && R -e 'devtools::install_version("pryr", version = "0.1.4")' \
  && R -e 'devtools::install_version("RSQLite", version = "2.1.1")' \
  && R -e 'devtools::install_version("gtools", version = "3.8.1")'
