@@ -1271,26 +1271,6 @@ get_correlation_plot_data <- function(dataset, id,
         stop(sprintf("id '%s' not found: ", id_correlate))
     }
     
-    id_column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
-    samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
-    
-    # get the covar factors data
-    sample_info <- list()
-    dt <- list()
-    for (s in ds$covar.info$sample.column) {
-        stopifnot(!is.null(ds$annot.samples[[s]]))
-        sample_info[[toString(s)]] <- ds$annot.samples[samples_idx, ][[s]]
-        
-        if (is.factor(ds$annot.samples[[s]])) {
-            dt[[toString(s)]] <- 
-                gtools::mixedsort(levels(ds$annot.samples[[s]]))
-        } else {
-            dt[[toString[s]]] <- 
-                gtools::mixedsort(unique(ds$annot.samples[[s]]))
-        }
-    }
-    
-    
     if (!gtools::invalid(intcovar)) {
         interactive_covariate <- 
             colnames(ds$covar.matrix)[grepl(intcovar, 
@@ -1316,6 +1296,27 @@ get_correlation_plot_data <- function(dataset, id,
     } else {
         x <- data[, idx]
         y <- data_correlate[, idx_correlate]
+    }
+    
+    
+    id_column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
+    samples <- intersect(rownames(data), rownames(data_correlate))
+    samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
+    
+    # get the covar factors data
+    sample_info <- list()
+    dt <- list()
+    for (s in ds$covar.info$sample.column) {
+        stopifnot(!is.null(ds$annot.samples[[s]]))
+        sample_info[[toString(s)]] <- ds$annot.samples[samples_idx, ][[s]]
+        
+        if (is.factor(ds$annot.samples[[s]])) {
+            dt[[toString(s)]] <- 
+                gtools::mixedsort(levels(ds$annot.samples[[s]]))
+        } else {
+            dt[[toString[s]]] <- 
+                gtools::mixedsort(unique(ds$annot.samples[[s]]))
+        }
     }
     
     ret_data <- 
