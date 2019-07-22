@@ -448,7 +448,7 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     for (u in covar_unique) {
         # samples.names will contain ONLY the samples that match x
         # take all samples
-        # filter rows by value, i.e. sex = "F
+        # filter rows by value, i.e. sex = "F"
         # select just need the mouse.id column
         sample_names <- 
             ds$annot.samples %>%                        
@@ -1055,7 +1055,7 @@ get_lod_peaks_all <- function(dataset) {
     peaks <- list(additive = get_lod_peaks(dataset))
     
     # get the rest
-    for (i in 1:nrow(ds$covar.info)) {
+    for (i in seq(nrow(ds$covar.info))) {
         inf <- ds$covar.info[i, ]
         
         if (inf$interactive) {
@@ -1118,7 +1118,7 @@ calculate_residual_matrix <- function(variable_matrix,
         
         qr_0 <- qr(X_0)
         
-        residual_matrix <- sapply(1:length(variables_interest), function(i) {
+        residual_matrix <- sapply(seq(variables_interest), function(i) {
             d <- y_data[, variables_interest[i]]
             return(qr.resid(qr_0, d))
         }, simplify = TRUE)
@@ -1127,7 +1127,7 @@ calculate_residual_matrix <- function(variable_matrix,
     }
     else{
         ## Way too slow, use QR trick
-        residual_matrix <- sapply(1:length(variables_interest), function(i) {
+        residual_matrix <- sapply(seq(variables_interest), function(i) {
             formula_str <- 
                 paste(variables_interest[i], "~", paste(variables_compare, collapse = " + "))
             fit <- lm(formula(formula_str), data = data)
@@ -1297,8 +1297,7 @@ get_correlation_plot_data <- function(dataset, id,
         x <- data[, idx]
         y <- data_correlate[, idx_correlate]
     }
-    
-    
+        
     id_column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
     samples <- intersect(rownames(data), rownames(data_correlate))
     samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
@@ -1314,7 +1313,7 @@ get_correlation_plot_data <- function(dataset, id,
             dt[[toString(s)]] <- 
                 gtools::mixedsort(levels(ds$annot.samples[[s]]))
         } else {
-            dt[[toString[s]]] <- 
+            dt[[toString(s)]] <- 
                 gtools::mixedsort(unique(ds$annot.samples[[s]]))
         }
     }
