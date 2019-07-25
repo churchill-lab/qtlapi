@@ -315,7 +315,7 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
         stop(sprintf("id '%s' not found", id))
     }
     
-    # make sure num.cores is appropriate  
+    # make sure num_cores is appropriate  
     num_cores = nvl_int(cores, 0)
     
     if (is_phenotype(ds)) {
@@ -648,7 +648,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                                   pheno     = data[sample_names, idx, drop = FALSE],
                                   kinship   = K[[chrom]][sample_names, sample_names],
                                   addcovar  = covar_subset,
-                                  cores     = num.cores)
+                                  cores     = num_cores)
             } else {
                 temp <- scan1coef(genoprobs = genoprobs[sample_names, chrom],
                                   pheno     = data[sample_names, idx, drop = FALSE],
