@@ -290,7 +290,7 @@ get_dataset_info <- function() {
     }
     
     list(datasets        = ret, 
-         ensembl.version = ensembl.version)
+         ensembl.version = nvl(ensembl.version, NA))
 }
 
 
@@ -379,10 +379,11 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
                   reml      = TRUE)
     
     # construct a 2 dimensional array of data with id, chr, pos, lod as columns
-    tibble(id  = markers$marker.id,
-           chr = markers$chr,
-           pos = markers$pos,
-           lod = temp[, 1])
+    # we perform a left join here to make sure that the number of elements match
+    left_join(as_tibble(temp, rownames = 'marker.id'), 
+              markers, 
+              by="marker.id") %>% 
+        select(id = marker.id, chr, pos, lod = id)
 }
 
 
