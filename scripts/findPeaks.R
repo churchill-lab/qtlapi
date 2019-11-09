@@ -1,7 +1,7 @@
 
 
 
-CalcPeaks <- function(fName, dataset, start, step, nCores = 0) {
+find_peaks <- function(fName, dataset, start, step, nCores = 0) {
     print(paste0('fName: ', fName))
     print(paste0('dataset: ', dataset))
     print(paste0('start: ', start))
@@ -84,7 +84,14 @@ CalcPeaks <- function(fName, dataset, start, step, nCores = 0) {
     }
 }
 
-# Rscript ~/delete.R ~/work/qtlviewer/data/DO188/DO188b_kidney_20180926_YT.Rdata ~/work/qtlviewer/qtlapi/qtlapi.R ./out.csv dataset.mrna 42 2
+
+# args:
+# 1 == RData file
+# 2 == QTLAPI source
+# 3 == dataset
+# 4 == start,
+# 5 == step size
+# 6 == number of cores
 
 args <- commandArgs(trailingOnly = TRUE)
 print(paste0('Loading: ', args[1]))
@@ -92,5 +99,5 @@ load(args[1])
 debug_mode <- TRUE
 print(paste0('Sourcing: ', args[2]))
 source(args[2])
-CalcPeaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
+find_peaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
 print('DONE')

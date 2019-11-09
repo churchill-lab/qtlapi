@@ -382,7 +382,7 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
     # we perform a left join here to make sure that the number of elements match
     left_join(as_tibble(temp, rownames = 'marker.id'), 
               markers, 
-              by="marker.id") %>% 
+              by = 'marker.id') %>% 
         select(id = marker.id, chr, pos, lod = id)
 }
 
@@ -761,16 +761,22 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
     # get the annotations
     if (tolower(ds_mediate$datatype) == "mrna") {
         # grab the annotations, create middle_point, and select what is needed
-        annot <- 
-            ds_mediate$annot.mrna %>% 
-            mutate(middle_point = (start + end) / 2) %>% 
-            select(gene.id, symbol, chr, middle_point)
+        annot <-
+            inner_join(enframe(colnames(data_mediate), name=NULL),
+                       ds_mediate$annot.mrna,
+                       by = c("value" = "gene.id")) %>%
+            mutate(middle_point = (start + end) / 2) %>%
+            select(gene.id = value, symbol, chr, middle_point)
+        
     } else if (tolower(ds_mediate$datatype) == "protein") {
         # grab the annotations, create middle_point, and select what is needed
-        annot <- 
-            ds_mediate$annot.protein %>% 
-            mutate(middle_point = (start + end) / 2) %>% 
-            select(protein.id, gene.id, symbol, chr, middle_point)
+        annot <-
+            inner_join(enframe(colnames(data_mediate), name=NULL),
+                       ds_mediate$annot.protein,
+                       by = c("value" = "protein.id")) %>%
+            mutate(middle_point = (start + end) / 2) %>%
+            select(protein.id = value, gene.id, symbol, chr, middle_point)
+
     } else if (is_phenotype(ds_mediate)) {
         stop("invalid datatype to mediate against")
     } else {
