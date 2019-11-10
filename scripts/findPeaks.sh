@@ -1,0 +1,17 @@
+#PBS -l nodes=1:ppn=8,walltime=08:00:00
+
+module load R/3.6.0
+
+#cd /fastscratch/mvincent/
+
+echo "FINDPEAKSR : $FINDPEAKSR"
+echo "DATAFILE : $DATAFILE"
+echo "QTLAPISOURCE : $QTLAPISOURCE"
+echo "OUTPUTFILE : $OUTPUTFILE"
+echo "DATASET : $DATASET"
+echo "START : $START"
+echo "STEP : $STEP"
+
+Rscript $FINDPEAKSR $DATAFILE $QTLAPISOURCE $OUTPUTFILE $DATASET $START $STEP
+
+
