@@ -290,7 +290,7 @@ get_dataset_info <- function() {
     }
     
     list(datasets        = ret, 
-         ensembl.version = ensembl.version)
+         ensembl.version = nvl(ensembl.version, NA))
 }
 
 
@@ -315,7 +315,7 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
         stop(sprintf("id '%s' not found", id))
     }
     
-    # make sure num.cores is appropriate  
+    # make sure num_cores is appropriate  
     num_cores = nvl_int(cores, 0)
     
     if (is_phenotype(ds)) {
@@ -379,10 +379,11 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
                   reml      = TRUE)
     
     # construct a 2 dimensional array of data with id, chr, pos, lod as columns
-    tibble(id  = markers$marker.id,
-           chr = markers$chr,
-           pos = markers$pos,
-           lod = temp[, 1])
+    # we perform a left join here to make sure that the number of elements match
+    left_join(as_tibble(temp, rownames = 'marker.id'), 
+              markers, 
+              by = 'marker.id') %>% 
+        select(id = marker.id, chr, pos, lod = id)
 }
 
 
@@ -448,7 +449,7 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     for (u in covar_unique) {
         # samples.names will contain ONLY the samples that match x
         # take all samples
-        # filter rows by value, i.e. sex = "F
+        # filter rows by value, i.e. sex = "F"
         # select just need the mouse.id column
         sample_names <- 
             ds$annot.samples %>%                        
@@ -648,7 +649,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                                   pheno     = data[sample_names, idx, drop = FALSE],
                                   kinship   = K[[chrom]][sample_names, sample_names],
                                   addcovar  = covar_subset,
-                                  cores     = num.cores)
+                                  cores     = num_cores)
             } else {
                 temp <- scan1coef(genoprobs = genoprobs[sample_names, chrom],
                                   pheno     = data[sample_names, idx, drop = FALSE],
@@ -720,7 +721,7 @@ get_expression <- function(dataset, id) {
 }    
 
 
-#' Perofrm mediation
+#' Perform mediation
 #' 
 #' @param dataset The dataset identifier.
 #' @param id The identifier.
@@ -760,16 +761,22 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
     # get the annotations
     if (tolower(ds_mediate$datatype) == "mrna") {
         # grab the annotations, create middle_point, and select what is needed
-        annot <- 
-            ds_mediate$annot.mrna %>% 
-            mutate(middle_point = (start + end) / 2) %>% 
-            select(gene.id, symbol, chr, middle_point)
+        annot <-
+            inner_join(enframe(colnames(data_mediate), name=NULL),
+                       ds_mediate$annot.mrna,
+                       by = c("value" = "gene.id")) %>%
+            mutate(middle_point = (start + end) / 2) %>%
+            select(gene.id = value, symbol, chr, middle_point)
+        
     } else if (tolower(ds_mediate$datatype) == "protein") {
         # grab the annotations, create middle_point, and select what is needed
-        annot <- 
-            ds_mediate$annot.protein %>% 
-            mutate(middle_point = (start + end) / 2) %>% 
-            select(protein.id, gene.id, symbol, chr, middle_point)
+        annot <-
+            inner_join(enframe(colnames(data_mediate), name=NULL),
+                       ds_mediate$annot.protein,
+                       by = c("value" = "protein.id")) %>%
+            mutate(middle_point = (start + end) / 2) %>%
+            select(protein.id = value, gene.id, symbol, chr, middle_point)
+
     } else if (is_phenotype(ds_mediate)) {
         stop("invalid datatype to mediate against")
     } else {
@@ -1055,7 +1062,7 @@ get_lod_peaks_all <- function(dataset) {
     peaks <- list(additive = get_lod_peaks(dataset))
     
     # get the rest
-    for (i in 1:nrow(ds$covar.info)) {
+    for (i in seq(nrow(ds$covar.info))) {
         inf <- ds$covar.info[i, ]
         
         if (inf$interactive) {
@@ -1118,7 +1125,7 @@ calculate_residual_matrix <- function(variable_matrix,
         
         qr_0 <- qr(X_0)
         
-        residual_matrix <- sapply(1:length(variables_interest), function(i) {
+        residual_matrix <- sapply(seq(variables_interest), function(i) {
             d <- y_data[, variables_interest[i]]
             return(qr.resid(qr_0, d))
         }, simplify = TRUE)
@@ -1127,7 +1134,7 @@ calculate_residual_matrix <- function(variable_matrix,
     }
     else{
         ## Way too slow, use QR trick
-        residual_matrix <- sapply(1:length(variables_interest), function(i) {
+        residual_matrix <- sapply(seq(variables_interest), function(i) {
             formula_str <- 
                 paste(variables_interest[i], "~", paste(variables_compare, collapse = " + "))
             fit <- lm(formula(formula_str), data = data)
@@ -1271,26 +1278,6 @@ get_correlation_plot_data <- function(dataset, id,
         stop(sprintf("id '%s' not found: ", id_correlate))
     }
     
-    id_column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
-    samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
-    
-    # get the covar factors data
-    sample_info <- list()
-    dt <- list()
-    for (s in ds$covar.info$sample.column) {
-        stopifnot(!is.null(ds$annot.samples[[s]]))
-        sample_info[[toString(s)]] <- ds$annot.samples[samples_idx, ][[s]]
-        
-        if (is.factor(ds$annot.samples[[s]])) {
-            dt[[toString(s)]] <- 
-                gtools::mixedsort(levels(ds$annot.samples[[s]]))
-        } else {
-            dt[[toString[s]]] <- 
-                gtools::mixedsort(unique(ds$annot.samples[[s]]))
-        }
-    }
-    
-    
     if (!gtools::invalid(intcovar)) {
         interactive_covariate <- 
             colnames(ds$covar.matrix)[grepl(intcovar, 
@@ -1311,12 +1298,37 @@ get_correlation_plot_data <- function(dataset, id,
                                       variables_compare  = interactive_covariate,
                                       use_qr             = TRUE)
         
+        x <- data[, 1]
+        y <- data_correlate[, idx_correlate]
+    } else {
+        x <- data[, idx]
+        y <- data_correlate[, idx_correlate]
+    }
+        
+    id_column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
+    samples <- intersect(rownames(data), rownames(data_correlate))
+    samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
+    
+    # get the covar factors data
+    sample_info <- list()
+    dt <- list()
+    for (s in ds$covar.info$sample.column) {
+        stopifnot(!is.null(ds$annot.samples[[s]]))
+        sample_info[[toString(s)]] <- ds$annot.samples[samples_idx, ][[s]]
+        
+        if (is.factor(ds$annot.samples[[s]])) {
+            dt[[toString(s)]] <- 
+                gtools::mixedsort(levels(ds$annot.samples[[s]]))
+        } else {
+            dt[[toString(s)]] <- 
+                gtools::mixedsort(unique(ds$annot.samples[[s]]))
+        }
     }
     
     ret_data <- 
         as_tibble(data.frame(mouse.id         = rownames(data), 
-                             x                = data[, idx], 
-                             y                = data_correlate[, idx_correlate],
+                             x                = x, 
+                             y                = y,
                              sample_info,
                              stringsAsFactors = FALSE))
 

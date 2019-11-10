@@ -105,8 +105,9 @@ http_get_lodscan <- function(request, response) {
                             cores    = cores)
         
         if (!(to_boolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
+            lod <- as.data.frame(lod)
             colnames(lod) <- NULL
         }
         
@@ -173,9 +174,10 @@ http_get_lodscan_samples <- function(request, response) {
                                       cores    = cores)
         
         if (!(to_boolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
             for (element in names(lod)) {
+                lod[[element]] <- as.data.frame(lod[[element]])
                 colnames(lod[[element]]) <- NULL
             }
         }
@@ -226,14 +228,14 @@ http_get_foundercoefficients <- function(request, response) {
                                            cores    = cores)
         
         if (!(to_boolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
-            
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
             for (element in names(effect)) {
+                effect[[element]] <- as.data.frame(effect[[element]])
                 colnames(effect[[element]]) <- NULL
             }
         }
-        
+
         elapsed <- proc.time() - ptm
   
         logger$info(paste0('http_get_foundercoefficients - time: ', elapsed["elapsed"]))
@@ -309,8 +311,9 @@ http_get_mediation <- function(request, response) {
                                    intcovar        = intcovar)
         
         if (!(to_boolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
+            mediation <- as.data.frame(mediation)
             colnames(mediation) <- NULL
         }
 
@@ -360,11 +363,12 @@ http_get_snp_assoc_mapping <- function(request, response) {
                                             cores       = cores)
         
         if (!(to_boolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
+            snp_assoc <- as.data.frame(snp_assoc)
             colnames(snp_assoc) <- NULL
         }
-        
+
         elapsed <- proc.time() - ptm
 
         logger$info(paste0('http_get_snp_assoc_mapping - time: ', elapsed["elapsed"]))
@@ -400,11 +404,12 @@ http_get_lod_peaks <- function(request, response) {
         lod_peaks <- get_lod_peaks(dataset, intcovar)
         
         if (!(to_boolean(expand))) {
-            # by setting column names to NULL, the result will be a
-            # 2 dimensional array
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
+            lod_peaks <- as.data.frame(lod_peaks)
             colnames(lod_peaks) <- NULL
         }
-        
+
         elapsed <- proc.time() - ptm
         
         logger$info(paste0('http_get_lod_peaks - time: ', elapsed["elapsed"]))
@@ -437,9 +442,12 @@ http_get_lod_peaks_all <- function(request, response) {
       peaks <- get_lod_peaks_all(dataset)
       
       if (!(to_boolean(expand))) {
-          for (n in names(peaks)) {
-              colnames(peaks[[n]]) <- NULL
-          }
+            # by converting to data.frame and setting column names to NULL, 
+            # the result will be a 2 dimensional array
+            for (n in names(peaks)) {
+                peaks[[n]] <- as.data.frame(peaks[[n]])
+                colnames(peaks[[n]]) <- NULL
+            }
       }
       
       elapsed <- proc.time() - ptm
