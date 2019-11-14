@@ -62,6 +62,7 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
                 print(paste0('GetLODScan: ', dataset, ', ', id, ', ', inf$sample.column))
                 lodScoresCovar <- get_lod_scan(dataset, id, intcovar = inf$sample.column, cores = nCores)
 
+                # DO NOT STORE LOD, SCORE LOD DIFF
                 temp <- merge(x=lodScores, y=lodScoresCovar[,c("id", "lod")], by="id", all.x=TRUE)
                 temp$lod <- temp$lod.y - temp$lod.x
                 temp$lod.x <- NULL
