@@ -1,6 +1,3 @@
-
-
-
 find_peaks <- function(fName, dataset, start, step, nCores = 0) {
     print(paste0('fName: ', fName))
     print(paste0('dataset: ', dataset))
@@ -40,18 +37,39 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
 
         maxLodScores <- lodScores %>% 
                         group_by(chr) %>% 
-                        top_n(1, lod)
-
-        maxLodScores <- as.data.frame(maxLodScores[maxLodScores$lod > 6.0, ])
+                        top_n(1, lod) %>%
+                        filter(lod > 6.0)
 
         if (nrow(maxLodScores) > 0) {
-            maxLodScores <- data.frame(intCovar  = 'additive', 
-                                       annot.id  = id, 
-                                       marker.id = maxLodScores$id, 
-                                       lod       = maxLodScores$lod)
-            write.table(maxLodScores,
-                        fileName,
-                        sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
+            # get the allele effects only for additive
+            print('getting data...')
+            ds_data <- get_data(dataset)
+
+            for (i in 1:nrow(maxLodScores)) {
+                t_score <- maxLodScores[i, ]
+                t_chr <- t_score$chr
+                t_marker <- t_score$id
+                t_probs <- list()
+                t_probs[[t_chr]] <- genoprobs[[t_chr]][,,t_marker, drop = FALSE]
+
+                af <- scan1blup(genoprobs = t_probs,
+                                pheno     = ds_data[, id, drop = FALSE],
+                                kinship   = K[[t_chr]])
+    
+
+                output <- data.frame(intCovar  = 'additive', 
+                                     annot.id  = id, 
+                                     marker.id = maxLodScores$id, 
+                                     lod       = maxLodScores$lod,
+                                     t(af[, LETTERS[1:8]]))
+
+                write.table(output,
+                            fileName,
+                            sep = ",", 
+                            row.names = FALSE, 
+                            col.names = FALSE, 
+                            append = TRUE)
+            }
         }
 
         # loop through interactive covariates
@@ -70,9 +88,8 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
 
                 maxLodScoresCovar <- temp %>% 
                                      group_by(chr) %>% 
-                                     top_n(1, lod)
-
-                maxLodScoresCovar <- as.data.frame(maxLodScoresCovar[maxLodScoresCovar$lod > 6.0, ])
+                                     top_n(1, lod) %>%
+                                     filter(lod > 6.0)
 
                 if (nrow(maxLodScoresCovar) > 0) {
                     maxLodScoresCovar <- data.frame(intCovar=inf$sample.column, annot.id=id, marker.id=maxLodScoresCovar$id, lod=maxLodScoresCovar$lod)

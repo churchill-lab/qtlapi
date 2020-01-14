@@ -1,5 +1,40 @@
 library(RestRserve)
 library(jsonlite)
+library(memCompression)
+
+middleware_gzip <- Middleware$new(
+    process_request = function(request, response) {
+        #msg = list(
+        #    middleware = "middleware_gzip",
+        #    request_id = request$id,
+        #    timestamp = Sys.time()
+        #)
+        #msg = to_json(msg)
+        #cat(msg, sep = '\n')
+    },
+    process_response = function(request, response) {
+        enc = request$get_header("Accept-Encoding")
+
+        if ("gzip" %in% enc) {
+            response$set_header("Content-Encoding", "gzip")
+            response$set_header("Vary", "Accept-Encoding")
+            raw <- charToRaw(response$body)
+            response$set_body(memCompression::compress(raw, "gzip"))
+            response$encode = identity
+        }
+    
+        #msg = list(
+        #    middleware = "middleware_gzip",
+        #    request_id = request$id,
+        #    timestamp = Sys.time()
+        #)
+        
+        #msg = to_json(msg)
+        #cat(msg, sep = '\n')
+    },
+    id = "gzip"
+)
+
 
 pretty_JSON <- function(timestamp, level, logger_name, pid, message) {
     x = to_json(
@@ -24,11 +59,18 @@ simple_csv <- function(timestamp, level, logger_name, pid, message) {
     cat(x, file = "", append = TRUE, sep = "\n")
 }
 
+
 # setup app and logging
-logger <- RestRserve::Logger$new(level=TRACE, name="app", FUN=simple_csv)
-#logger <- RestRserve::Logger$new(level=TRACE, name="app")
-RestRserveApp <- RestRserve::RestRserveApplication$new()
-RestRserveApp$logger <- logger
+#EncodeDecode = EncodeDecodeMiddleware$new()
+
+application = Application$new(
+    content_type = "application/json",
+    middleware = list()
+)
+logger = Logger$new("trace")
+
+application$append_middleware(middleware_gzip)
+#application$append_middleware(EncodeDecode)
 
 
 http_get_dataset <- function(request, response) {
@@ -60,8 +102,6 @@ http_get_dataset <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-  
-    RestRserve::forward()
 }
 
 
@@ -89,11 +129,11 @@ http_get_lodscan <- function(request, response) {
         # start the clock
         ptm <- proc.time()
       
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        intcovar <- request$query[["intcovar"]]
-        cores <- nvl_int(request$query[["cores"]], 5)
-        expand <- nvl(request$query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        intcovar <- request$parameters_query[["intcovar"]]
+        cores <- nvl_int(request$parameters_query[["cores"]], 5)
+        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             intcovar <- NULL
@@ -126,8 +166,8 @@ http_get_lodscan <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-      
-    RestRserve::forward()
+
+    #response$encode = identity
 }
 
 
@@ -155,13 +195,12 @@ http_get_lodscan_samples <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        intcovar <- request$query[["intcovar"]]
-        chrom <- request$query[["chrom"]]
-        #regress.local <- request$query[["regress.local"]]
-        cores <- nvl_int(request$query[["cores"]], 5)
-        expand <- nvl(request$query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        intcovar <- request$parameters_query[["intcovar"]]
+        chrom <- request$parameters_query[["chrom"]]
+        cores <- nvl_int(request$parameters_query[["cores"]], 5)
+        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             stop("intcovar should not be additive or null")
@@ -197,8 +236,6 @@ http_get_lodscan_samples <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_foundercoefficients <- function(request, response) {
@@ -206,14 +243,14 @@ http_get_foundercoefficients <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        chrom <- request$query[["chrom"]]
-        intcovar <- request$query[["intcovar"]]
-        blup <- nvl(request$query[["blup"]], 'FALSE')
-        center <- nvl(request$query[["center"]], "TRUE")
-        cores <- nvl_int(request$query[["cores"]], 5)
-        expand <- nvl(request$query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        chrom <- request$parameters_query[["chrom"]]
+        intcovar <- request$parameters_query[["intcovar"]]
+        blup <- nvl(request$parameters_query[["blup"]], 'FALSE')
+        center <- nvl(request$parameters_query[["center"]], "TRUE")
+        cores <- nvl_int(request$parameters_query[["cores"]], 5)
+        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             intcovar <- NULL
@@ -251,8 +288,6 @@ http_get_foundercoefficients <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_expression <- function(request, response) {
@@ -260,8 +295,8 @@ http_get_expression <- function(request, response) {
       # start the clock
       ptm <- proc.time()
       
-      dataset <- request$query[["dataset"]]
-      id <- request$query[["id"]]
+      dataset <- request$parameters_query[["dataset"]]
+      id <- request$parameters_query[["id"]]
       
       expression <- get_expression(dataset = dataset, 
                                    id      = id)
@@ -284,8 +319,6 @@ http_get_expression <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_mediation <- function(request, response) {
@@ -293,12 +326,12 @@ http_get_mediation <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        marker_id <- request$query[["marker_id"]]
-        dataset_mediate <- request$query[["dataset_mediate"]]
-        intcovar <- request$query[["intcovar"]]
-        expand <- nvl(request$query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        marker_id <- request$parameters_query[["marker_id"]]
+        dataset_mediate <- request$parameters_query[["dataset_mediate"]]
+        intcovar <- request$parameters_query[["intcovar"]]
+        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
 
         if (tolower(nvl(intcovar, '')) %in% c('', 'none')) {
             intcovar <- NULL
@@ -332,8 +365,6 @@ http_get_mediation <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_snp_assoc_mapping <- function(request, response) {
@@ -341,14 +372,14 @@ http_get_snp_assoc_mapping <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        chrom <- request$query[["chrom"]]
-        location <- request$query[["location"]]
-        window_size <- nvl_int(request$query[["window_size"]], 500000)
-        intcovar <- request$query[["intcovar"]]
-        cores <- nvl_int(request$query[["cores"]], 5)
-        expand <- nvl(request$query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        chrom <- request$parameters_query[["chrom"]]
+        location <- request$parameters_query[["location"]]
+        window_size <- nvl_int(request$parameters_query[["window_size"]], 500000)
+        intcovar <- request$parameters_query[["intcovar"]]
+        cores <- nvl_int(request$parameters_query[["cores"]], 5)
+        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
           intcovar <- NULL
@@ -384,8 +415,6 @@ http_get_snp_assoc_mapping <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_lod_peaks <- function(request, response) {
@@ -393,9 +422,9 @@ http_get_lod_peaks <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        intcovar <- request$query[["intcovar"]]
-        expand <- nvl(request$query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[["dataset"]]
+        intcovar <- request$parameters_query[["intcovar"]]
+        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             intcovar <- NULL
@@ -425,8 +454,6 @@ http_get_lod_peaks <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 
@@ -435,8 +462,8 @@ http_get_lod_peaks_all <- function(request, response) {
       # start the clock
       ptm <- proc.time()
       
-      dataset <- request$query[["dataset"]]
-      expand <- nvl(request$query[["expand"]], 'FALSE')
+      dataset <- request$parameters_query[["dataset"]]
+      expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
       
       # get the LOD peaks for each covarint
       peaks <- get_lod_peaks_all(dataset)
@@ -466,8 +493,6 @@ http_get_lod_peaks_all <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_correlation <- function(request, response) {
@@ -475,11 +500,11 @@ http_get_correlation <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        dataset_correlate <- request$query[["dataset_correlate"]]
-        intcovar <- request$query[["intcovar"]]
-        max_items <- nvl_int(request$query[["max_items"]], 10000)
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        dataset_correlate <- request$parameters_query[["dataset_correlate"]]
+        intcovar <- request$parameters_query[["intcovar"]]
+        max_items <- nvl_int(request$parameters_query[["max_items"]], 10000)
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'none')) {
             intcovar <- NULL
@@ -507,8 +532,6 @@ http_get_correlation <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
 http_get_correlation_plot_data <- function(request, response) {
@@ -516,11 +539,11 @@ http_get_correlation_plot_data <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$query[["dataset"]]
-        id <- request$query[["id"]]
-        dataset_correlate <- request$query[["dataset_correlate"]]
-        id_correlate <- request$query[["id_correlate"]]
-        intcovar <- request$query[["intcovar"]]
+        dataset <- request$parameters_query[["dataset"]]
+        id <- request$parameters_query[["id"]]
+        dataset_correlate <- request$parameters_query[["dataset_correlate"]]
+        id_correlate <- request$parameters_query[["id_correlate"]]
+        intcovar <- request$parameters_query[["intcovar"]]
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'none')) {
             intcovar <- NULL
@@ -548,31 +571,42 @@ http_get_correlation_plot_data <- function(request, response) {
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
-    
-    RestRserve::forward()
 }
 
-RestRserveApp$add_get(path = "/datasets", FUN = http_get_dataset, add_head = FALSE)
-RestRserveApp$add_get(path = "/lodscan", FUN = http_get_lodscan, add_head = FALSE)
-RestRserveApp$add_get(path = "/lodscansamples", FUN = http_get_lodscan_samples, add_head = FALSE)
-RestRserveApp$add_get(path = "/foundercoefs", FUN = http_get_foundercoefficients, add_head = FALSE)
-RestRserveApp$add_get(path = "/expression", FUN = http_get_expression, add_head = FALSE)
-RestRserveApp$add_get(path = "/mediate", FUN = http_get_mediation, add_head = FALSE)
-RestRserveApp$add_get(path = "/snpassoc", FUN = http_get_snp_assoc_mapping, add_head = FALSE)
-RestRserveApp$add_get(path = "/lodpeaks", FUN = http_get_lod_peaks, add_head = FALSE)
-RestRserveApp$add_get(path = "/lodpeaksall", FUN = http_get_lod_peaks_all, add_head = FALSE)
-RestRserveApp$add_get(path = "/correlation", FUN = http_get_correlation, add_head = FALSE)
-RestRserveApp$add_get(path = "/correlationplot", FUN = http_get_correlation_plot_data, add_head = FALSE)
 
+
+
+
+application$add_get(path = "/datasets", FUN = http_get_dataset, add_head = FALSE)
+application$add_get(path = "/lodscan", FUN = http_get_lodscan, add_head = FALSE)
+application$add_get(path = "/lodscansamples", FUN = http_get_lodscan_samples, add_head = FALSE)
+application$add_get(path = "/foundercoefs", FUN = http_get_foundercoefficients, add_head = FALSE)
+application$add_get(path = "/expression", FUN = http_get_expression, add_head = FALSE)
+application$add_get(path = "/mediate", FUN = http_get_mediation, add_head = FALSE)
+application$add_get(path = "/snpassoc", FUN = http_get_snp_assoc_mapping, add_head = FALSE)
+application$add_get(path = "/lodpeaks", FUN = http_get_lod_peaks, add_head = FALSE)
+application$add_get(path = "/lodpeaksall", FUN = http_get_lod_peaks_all, add_head = FALSE)
+application$add_get(path = "/correlation", FUN = http_get_correlation, add_head = FALSE)
+application$add_get(path = "/correlationplot", FUN = http_get_correlation_plot_data, add_head = FALSE)
+#RestRserveApp$append_middleware(gzip_middleware)
 #RestRserveApp$add_openapi(path = "/openapi.yaml", file_path = "openapi.yaml")
 #RestRserveApp$add_swagger_ui(path = "/swagger", 
 #                   path_openapi = "/openapi.yaml", 
 #                   path_swagger_assets = "/__swagger__")
 
 
-RestRserveApp$add_openapi()
-RestRserveApp$add_swagger_ui("/")
+#application$add_openapi()
+#application$add_swagger_ui("/")
 
-logger$info("READY")
+
+backend = BackendRserve$new()
+backend$start(application, 
+              http_port = 8001, 
+              encoding = "utf8", 
+              port = 6311, 
+              daemon = "disable", 
+              pid.file = "Rserve.pid")
+
+
 
 

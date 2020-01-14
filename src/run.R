@@ -1,1 +1,2 @@
-PID = RestRserve::restrserve_start("/app/qtlapi")
+source('/app/qtlapi/qtlapi.R')
+source('/app/qtlapi/restapi.R')
