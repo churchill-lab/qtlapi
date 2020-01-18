@@ -133,7 +133,7 @@ http_has_annotation <- function(request, response) {
         
         logger$info(paste0('http_has_annotation - time: ', elapsed['elapsed']))
 
-        response$body <- toJSON(list(result = datasets,
+        response$body <- toJSON(list(result = annotation_info,
                                      time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
