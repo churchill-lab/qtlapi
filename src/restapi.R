@@ -5,7 +5,7 @@ library(memCompression)
 middleware_gzip <- Middleware$new(
     process_request = function(request, response) {
         #msg = list(
-        #    middleware = "middleware_gzip",
+        #    middleware = 'middleware_gzip',
         #    request_id = request$id,
         #    timestamp = Sys.time()
         #)
@@ -13,18 +13,18 @@ middleware_gzip <- Middleware$new(
         #cat(msg, sep = '\n')
     },
     process_response = function(request, response) {
-        enc = request$get_header("Accept-Encoding")
+        enc = request$get_header('Accept-Encoding')
 
-        if ("gzip" %in% enc) {
-            response$set_header("Content-Encoding", "gzip")
-            response$set_header("Vary", "Accept-Encoding")
+        if ('gzip' %in% enc) {
+            response$set_header('Content-Encoding', 'gzip')
+            response$set_header('Vary', 'Accept-Encoding')
             raw <- charToRaw(response$body)
-            response$set_body(memCompression::compress(raw, "gzip"))
+            response$set_body(memCompression::compress(raw, 'gzip'))
             response$encode = identity
         }
     
         #msg = list(
-        #    middleware = "middleware_gzip",
+        #    middleware = 'middleware_gzip',
         #    request_id = request$id,
         #    timestamp = Sys.time()
         #)
@@ -32,31 +32,21 @@ middleware_gzip <- Middleware$new(
         #msg = to_json(msg)
         #cat(msg, sep = '\n')
     },
-    id = "gzip"
+    id = 'gzip'
 )
 
 
 pretty_JSON <- function(timestamp, level, logger_name, pid, message) {
     x = to_json(
         list(
-            timestamp = format(timestamp, "%Y-%m-%d %H:%M:%OS6"),
+            timestamp = format(timestamp, '%Y-%m-%d %H:%M:%OS6'),
             level = as.character(level),
             name = as.character(logger_name),
             pid = as.integer(pid),
             message = message
         )
     )
-    cat(prettify(x), file = "", append = TRUE, sep = "\n")
-}
-
-simple_csv <- function(timestamp, level, logger_name, pid, message) {
-    x = sprintf("[%s][%s][%s][%d][\"%s\"]",
-                format(timestamp, "%Y-%m-%d %H:%M:%OS6"),
-                as.character(level),
-                as.character(logger_name),
-                as.integer(pid),
-                message)
-    cat(x, file = "", append = TRUE, sep = "\n")
+    cat(prettify(x), file = '', append = TRUE, sep = '\n')
 }
 
 
@@ -64,10 +54,10 @@ simple_csv <- function(timestamp, level, logger_name, pid, message) {
 #EncodeDecode = EncodeDecodeMiddleware$new()
 
 application = Application$new(
-    content_type = "application/json",
+    content_type = 'application/json',
     middleware = list()
 )
-logger = Logger$new("trace")
+logger = Logger$new('trace')
 
 application$append_middleware(middleware_gzip)
 #application$append_middleware(EncodeDecode)
@@ -82,23 +72,75 @@ http_get_dataset <- function(request, response) {
     
         elapsed <- proc.time() - ptm
         
-        logger$info(paste0('http_get_dataset - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_dataset - time: ', elapsed['elapsed']))
         
-        #logger$trace(paste0('time: ', elapsed["elapsed"]))
-        #logger$debug(paste0('time: ', elapsed["elapsed"]))
-        #logger$info(paste0('time: ', elapsed["elapsed"]))
-        #logger$warning(paste0('time: ', elapsed["elapsed"]))
-        #logger$error(paste0('time: ', elapsed["elapsed"]))
-        #logger$fatal(paste0('time: ', elapsed["elapsed"]))
+        #logger$trace(paste0('time: ', elapsed['elapsed']))
+        #logger$debug(paste0('time: ', elapsed['elapsed']))
+        #logger$info(paste0('time: ', elapsed['elapsed']))
+        #logger$warning(paste0('time: ', elapsed['elapsed']))
+        #logger$error(paste0('time: ', elapsed['elapsed']))
+        #logger$fatal(paste0('time: ', elapsed['elapsed']))
     
         response$body <- toJSON(list(result = datasets,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_dataset - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_dataset - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_dataset',
+                                     error  = cond$message),
+                                auto_unbox = TRUE)
+    })
+}
+
+
+http_get_dataset_stats <- function(request, response) {
+    result <- tryCatch({
+        # start the clock
+        ptm <- proc.time()
+    
+        datasets <- get_dataset_stats()
+    
+        elapsed <- proc.time() - ptm
+        
+        logger$info(paste0('http_get_dataset_stats - time: ', elapsed['elapsed']))
+
+        response$body <- toJSON(list(result = datasets,
+                                     time   = elapsed['elapsed']),
+                                auto_unbox = TRUE)
+    },
+    error = function(cond) {
+        logger$error(sprintf('ERROR: http_get_dataset_stats - %s', cond$message))
+        response$status_code <- 400
+        response$body <- toJSON(list(method = 'http_get_dataset_stats',
+                                     error  = cond$message),
+                                auto_unbox = TRUE)
+    })
+}
+
+
+http_has_annotation <- function(request, response) {
+    result <- tryCatch({
+        # start the clock
+        ptm <- proc.time()
+
+        id <- request$parameters_query[['id']]
+    
+        annotation_info <- has_annotation(id)
+    
+        elapsed <- proc.time() - ptm
+        
+        logger$info(paste0('http_has_annotation - time: ', elapsed['elapsed']))
+
+        response$body <- toJSON(list(result = datasets,
+                                     time   = elapsed['elapsed']),
+                                auto_unbox = TRUE)
+    },
+    error = function(cond) {
+        logger$error(sprintf('ERROR: http_has_annotation - %s', cond$message))
+        response$status_code <- 400
+        response$body <- toJSON(list(method = 'http_has_annotation',
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
@@ -129,11 +171,11 @@ http_get_lodscan <- function(request, response) {
         # start the clock
         ptm <- proc.time()
       
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        intcovar <- request$parameters_query[["intcovar"]]
-        cores <- nvl_int(request$parameters_query[["cores"]], 5)
-        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        intcovar <- request$parameters_query[['intcovar']]
+        cores <- nvl_int(request$parameters_query[['cores']], 5)
+        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             intcovar <- NULL
@@ -153,14 +195,14 @@ http_get_lodscan <- function(request, response) {
         
         elapsed <- proc.time() - ptm
   
-        logger$info(paste0('http_get_lodscan - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_lodscan - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = lod,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_lodscan - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_lodscan - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_lodscan',
                                      error  = cond$message),
@@ -195,15 +237,15 @@ http_get_lodscan_samples <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        intcovar <- request$parameters_query[["intcovar"]]
-        chrom <- request$parameters_query[["chrom"]]
-        cores <- nvl_int(request$parameters_query[["cores"]], 5)
-        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        intcovar <- request$parameters_query[['intcovar']]
+        chrom <- request$parameters_query[['chrom']]
+        cores <- nvl_int(request$parameters_query[['cores']], 5)
+        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
-            stop("intcovar should not be additive or null")
+            stop('intcovar should not be additive or null')
         }
         
         lod <- get_lod_scan_by_sample(dataset  = dataset, 
@@ -223,14 +265,14 @@ http_get_lodscan_samples <- function(request, response) {
         
         elapsed <- proc.time() - ptm
 
-        logger$info(paste0('http_get_lodscan_samples - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_lodscan_samples - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = lod,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_lodscan_samples - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_lodscan_samples - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_lodscan_samples',
                                      error  = cond$message),
@@ -243,14 +285,14 @@ http_get_foundercoefficients <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        chrom <- request$parameters_query[["chrom"]]
-        intcovar <- request$parameters_query[["intcovar"]]
-        blup <- nvl(request$parameters_query[["blup"]], 'FALSE')
-        center <- nvl(request$parameters_query[["center"]], "TRUE")
-        cores <- nvl_int(request$parameters_query[["cores"]], 5)
-        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        chrom <- request$parameters_query[['chrom']]
+        intcovar <- request$parameters_query[['intcovar']]
+        blup <- nvl(request$parameters_query[['blup']], 'FALSE')
+        center <- nvl(request$parameters_query[['center']], 'TRUE')
+        cores <- nvl_int(request$parameters_query[['cores']], 5)
+        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             intcovar <- NULL
@@ -275,14 +317,14 @@ http_get_foundercoefficients <- function(request, response) {
 
         elapsed <- proc.time() - ptm
   
-        logger$info(paste0('http_get_foundercoefficients - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_foundercoefficients - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = effect,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_foundercoefficients - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_foundercoefficients - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_foundercoefficients',
                                      error  = cond$message),
@@ -295,8 +337,8 @@ http_get_expression <- function(request, response) {
       # start the clock
       ptm <- proc.time()
       
-      dataset <- request$parameters_query[["dataset"]]
-      id <- request$parameters_query[["id"]]
+      dataset <- request$parameters_query[['dataset']]
+      id <- request$parameters_query[['id']]
       
       expression <- get_expression(dataset = dataset, 
                                    id      = id)
@@ -306,14 +348,14 @@ http_get_expression <- function(request, response) {
 
       elapsed <- proc.time() - ptm
       
-      logger$info(paste0('http_get_expression - time: ', elapsed["elapsed"]))
+      logger$info(paste0('http_get_expression - time: ', elapsed['elapsed']))
       
       response$body <- toJSON(list(result = expression,
-                                   time   = elapsed["elapsed"]),
+                                   time   = elapsed['elapsed']),
                               auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_expression - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_expression - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_expression',
                                      error  = cond$message),
@@ -326,12 +368,12 @@ http_get_mediation <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        marker_id <- request$parameters_query[["marker_id"]]
-        dataset_mediate <- request$parameters_query[["dataset_mediate"]]
-        intcovar <- request$parameters_query[["intcovar"]]
-        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        marker_id <- request$parameters_query[['marker_id']]
+        dataset_mediate <- request$parameters_query[['dataset_mediate']]
+        intcovar <- request$parameters_query[['intcovar']]
+        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
 
         if (tolower(nvl(intcovar, '')) %in% c('', 'none')) {
             intcovar <- NULL
@@ -352,14 +394,14 @@ http_get_mediation <- function(request, response) {
 
         elapsed <- proc.time() - ptm
 
-        logger$info(paste0('http_get_mediation - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_mediation - time: ', elapsed['elapsed']))
 
         response$body <- toJSON(list(result = mediation,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_mediation - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_mediation - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_mediation',
                                      error  = cond$message),
@@ -372,14 +414,14 @@ http_get_snp_assoc_mapping <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        chrom <- request$parameters_query[["chrom"]]
-        location <- request$parameters_query[["location"]]
-        window_size <- nvl_int(request$parameters_query[["window_size"]], 500000)
-        intcovar <- request$parameters_query[["intcovar"]]
-        cores <- nvl_int(request$parameters_query[["cores"]], 5)
-        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        chrom <- request$parameters_query[['chrom']]
+        location <- request$parameters_query[['location']]
+        window_size <- nvl_int(request$parameters_query[['window_size']], 500000)
+        intcovar <- request$parameters_query[['intcovar']]
+        cores <- nvl_int(request$parameters_query[['cores']], 5)
+        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
           intcovar <- NULL
@@ -402,14 +444,14 @@ http_get_snp_assoc_mapping <- function(request, response) {
 
         elapsed <- proc.time() - ptm
 
-        logger$info(paste0('http_get_snp_assoc_mapping - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_snp_assoc_mapping - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = snp_assoc,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_snp_assoc_mapping - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_snp_assoc_mapping - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_snp_assoc_mapping',
                                      error  = cond$message),
@@ -422,9 +464,9 @@ http_get_lod_peaks <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        intcovar <- request$parameters_query[["intcovar"]]
-        expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+        dataset <- request$parameters_query[['dataset']]
+        intcovar <- request$parameters_query[['intcovar']]
+        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
             intcovar <- NULL
@@ -441,14 +483,14 @@ http_get_lod_peaks <- function(request, response) {
 
         elapsed <- proc.time() - ptm
         
-        logger$info(paste0('http_get_lod_peaks - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_lod_peaks - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = lod_peaks,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_lod_peaks - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_lod_peaks - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_lod_peaks',
                                      error  = cond$message),
@@ -462,8 +504,8 @@ http_get_lod_peaks_all <- function(request, response) {
       # start the clock
       ptm <- proc.time()
       
-      dataset <- request$parameters_query[["dataset"]]
-      expand <- nvl(request$parameters_query[["expand"]], 'FALSE')
+      dataset <- request$parameters_query[['dataset']]
+      expand <- nvl(request$parameters_query[['expand']], 'FALSE')
       
       # get the LOD peaks for each covarint
       peaks <- get_lod_peaks_all(dataset)
@@ -479,15 +521,15 @@ http_get_lod_peaks_all <- function(request, response) {
       
       elapsed <- proc.time() - ptm
       
-      logger$info(paste0('http_get_lod_peaks_all - time: ', elapsed["elapsed"]))
+      logger$info(paste0('http_get_lod_peaks_all - time: ', elapsed['elapsed']))
       
       response$body <- toJSON(list(id     = dataset,
                                    result = peaks,
-                                   time   = elapsed["elapsed"]),
+                                   time   = elapsed['elapsed']),
                               auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_lod_peaks_all - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_lod_peaks_all - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_lod_peaks_all',
                                      error  = cond$message),
@@ -500,11 +542,11 @@ http_get_correlation <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        dataset_correlate <- request$parameters_query[["dataset_correlate"]]
-        intcovar <- request$parameters_query[["intcovar"]]
-        max_items <- nvl_int(request$parameters_query[["max_items"]], 10000)
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        dataset_correlate <- request$parameters_query[['dataset_correlate']]
+        intcovar <- request$parameters_query[['intcovar']]
+        max_items <- nvl_int(request$parameters_query[['max_items']], 10000)
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'none')) {
             intcovar <- NULL
@@ -519,14 +561,14 @@ http_get_correlation <- function(request, response) {
 
         elapsed <- proc.time() - ptm
         
-        logger$info(paste0('http_get_correlation - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_correlation - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = correlation,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_correlation - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_correlation - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_correlation',
                                      error  = cond$message),
@@ -539,11 +581,11 @@ http_get_correlation_plot_data <- function(request, response) {
         # start the clock
         ptm <- proc.time()
         
-        dataset <- request$parameters_query[["dataset"]]
-        id <- request$parameters_query[["id"]]
-        dataset_correlate <- request$parameters_query[["dataset_correlate"]]
-        id_correlate <- request$parameters_query[["id_correlate"]]
-        intcovar <- request$parameters_query[["intcovar"]]
+        dataset <- request$parameters_query[['dataset']]
+        id <- request$parameters_query[['id']]
+        dataset_correlate <- request$parameters_query[['dataset_correlate']]
+        id_correlate <- request$parameters_query[['id_correlate']]
+        intcovar <- request$parameters_query[['intcovar']]
         
         if (tolower(nvl(intcovar, '')) %in% c('', 'none')) {
             intcovar <- NULL
@@ -558,14 +600,14 @@ http_get_correlation_plot_data <- function(request, response) {
         
         elapsed <- proc.time() - ptm
         
-        logger$info(paste0('http_get_correlation_plot_data - time: ', elapsed["elapsed"]))
+        logger$info(paste0('http_get_correlation_plot_data - time: ', elapsed['elapsed']))
         
         response$body <- toJSON(list(result = correlation,
-                                     time   = elapsed["elapsed"]),
+                                     time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf("ERROR: http_get_correlation_plot_data - %s", cond$message))
+        logger$error(sprintf('ERROR: http_get_correlation_plot_data - %s', cond$message))
         response$status_code <- 400
         response$body <- toJSON(list(method = 'http_get_correlation_plot_data',
                                      error  = cond$message),
@@ -577,35 +619,37 @@ http_get_correlation_plot_data <- function(request, response) {
 
 
 
-application$add_get(path = "/datasets", FUN = http_get_dataset, add_head = FALSE)
-application$add_get(path = "/lodscan", FUN = http_get_lodscan, add_head = FALSE)
-application$add_get(path = "/lodscansamples", FUN = http_get_lodscan_samples, add_head = FALSE)
-application$add_get(path = "/foundercoefs", FUN = http_get_foundercoefficients, add_head = FALSE)
-application$add_get(path = "/expression", FUN = http_get_expression, add_head = FALSE)
-application$add_get(path = "/mediate", FUN = http_get_mediation, add_head = FALSE)
-application$add_get(path = "/snpassoc", FUN = http_get_snp_assoc_mapping, add_head = FALSE)
-application$add_get(path = "/lodpeaks", FUN = http_get_lod_peaks, add_head = FALSE)
-application$add_get(path = "/lodpeaksall", FUN = http_get_lod_peaks_all, add_head = FALSE)
-application$add_get(path = "/correlation", FUN = http_get_correlation, add_head = FALSE)
-application$add_get(path = "/correlationplot", FUN = http_get_correlation_plot_data, add_head = FALSE)
-#RestRserveApp$append_middleware(gzip_middleware)
-#RestRserveApp$add_openapi(path = "/openapi.yaml", file_path = "openapi.yaml")
-#RestRserveApp$add_swagger_ui(path = "/swagger", 
-#                   path_openapi = "/openapi.yaml", 
-#                   path_swagger_assets = "/__swagger__")
+application$add_get(path = '/datasets', FUN = http_get_dataset, add_head = FALSE)
+application$add_get(path = '/datasetsstats', FUN = http_get_dataset_stats, add_head = FALSE)
+application$add_get(path = '/hasannotation', FUN = http_has_annotation, add_head = FALSE)
+application$add_get(path = '/lodscan', FUN = http_get_lodscan, add_head = FALSE)
+application$add_get(path = '/lodscansamples', FUN = http_get_lodscan_samples, add_head = FALSE)
+application$add_get(path = '/foundercoefs', FUN = http_get_foundercoefficients, add_head = FALSE)
+application$add_get(path = '/expression', FUN = http_get_expression, add_head = FALSE)
+application$add_get(path = '/mediate', FUN = http_get_mediation, add_head = FALSE)
+application$add_get(path = '/snpassoc', FUN = http_get_snp_assoc_mapping, add_head = FALSE)
+application$add_get(path = '/lodpeaks', FUN = http_get_lod_peaks, add_head = FALSE)
+application$add_get(path = '/lodpeaksall', FUN = http_get_lod_peaks_all, add_head = FALSE)
+application$add_get(path = '/correlation', FUN = http_get_correlation, add_head = FALSE)
+application$add_get(path = '/correlationplot', FUN = http_get_correlation_plot_data, add_head = FALSE)
+
+#RestRserveApp$add_openapi(path = '/openapi.yaml', file_path = 'openapi.yaml')
+#RestRserveApp$add_swagger_ui(path = '/swagger', 
+#                   path_openapi = '/openapi.yaml', 
+#                   path_swagger_assets = '/__swagger__')
 
 
 #application$add_openapi()
-#application$add_swagger_ui("/")
+#application$add_swagger_ui('/')
 
 
 backend = BackendRserve$new()
 backend$start(application, 
               http_port = 8001, 
-              encoding = "utf8", 
+              encoding = 'utf8', 
               port = 6311, 
-              daemon = "disable", 
-              pid.file = "Rserve.pid")
+              daemon = 'disable', 
+              pid.file = 'Rserve.pid')
 
 
 
