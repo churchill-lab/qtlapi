@@ -305,7 +305,7 @@ get_dataset_stats <- function() {
     for (d in datasets) {
         ds <- get(d)
         
-        num_annotations <- NA
+        num.annotations <- NA
         
         if (tolower(ds$datatype) == 'mrna') {
             num.annotations <- NROW(ds$annot.mrna)
@@ -318,7 +318,7 @@ get_dataset_stats <- function() {
         temp <- list(id              = d, 
                      display.name    = nvl(ds$display.name, d), 
                      datatype        = ds$datatype,
-                     num.annotations = num_annotations,
+                     num.annotations = num.annotations,
                      num.samples     = NROW(ds$annot.samples))
         
         ret <- c(ret, list(temp))
@@ -340,14 +340,11 @@ has_annotation <- function(id) {
     
     for (d in datasets) {
         ds <- get(d)
-        data <- get_data(dataset)
-
-        # grab the data for the id
-        id_data <- data[, id, drop = FALSE]
-
+        data <- get_data(d)
+        
         found <- FALSE
-    
-        if (gtools::valid(id_data)) {
+
+        if (id %in% colnames(data)) {
             found <- TRUE
         }
 
@@ -376,12 +373,15 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
     
-    # grab the data for the id
-    id_data <- data[, id, drop = FALSE]
+    # check if id exists 
+    idx <- which(colnames(data) == id)
     
-    if (gtools::invalid(id_data)) {
+    if (gtools::invalid(idx)) {
         stop(sprintf('id "%s" not found', id))
     }
+    
+    # grab the data for the id
+    id_data <- data[, id, drop = FALSE]
     
     # make sure num_cores is appropriate  
     num_cores = nvl_int(cores, 0)
