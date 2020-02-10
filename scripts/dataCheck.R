@@ -2,7 +2,6 @@
 GetDatasets <- function() {
     # grab the datasets in the environment
     datasets <- grep('^dataset*', apropos('dataset\\.'), value=TRUE)
-    return(datasets)
 }
 
 CheckDataset <- function(d) {
@@ -12,7 +11,7 @@ CheckDataset <- function(d) {
     if (exists(d)) {
         ds <- get(d)
     }
-
+    
     if (gtools::invalid(ds)) {
         stop(paste0("dataset not found '", d, '"'))
     } 
@@ -41,7 +40,7 @@ CheckDataset <- function(d) {
     } else {
         stop(paste0("datatype is '", datatype, "', but should be mRNA, protein, or phenotype"))
     }
-
+    
     ###########################################################################
     #
     # annotations
@@ -53,7 +52,7 @@ CheckDataset <- function(d) {
         if ('annot.mrna' %not in% names(ds)) {
             stop(paste0("annot.mrna not found in '", d, "'"))
         }
-
+        
         if (!is_tibble(ds$annot.mrna)) {
             stop(paste0("annot.mrna should be a tibble, but found '", class(ds$annot.mrna), "'"))
         }
@@ -77,7 +76,7 @@ CheckDataset <- function(d) {
         if ('annot.phenotype' %not in% names(ds)) {
             stop(paste0("annot.phenotype not found in '", d, "'"))
         }
-
+        
         if (!is_tibble(ds$annot.pheno)) {
             stop(paste0("annot.phenotype should be a tibble, but found ", class(ds$annot.phenotype)))
         }
@@ -162,6 +161,14 @@ CheckDataset <- function(d) {
         } else if ('nearest.marker.id' %not in% names(annot)) {
             stop(paste('nearest.marker.id not found in ', annot.name))
         }
+        
+        if (any(annot$start > 10000.0)) {
+            stop('$start should be in Mbp not bp')
+        } else if (any(annot$end > 10000.0)) {
+            stop('$end should be in Mbp not bp')
+        } else if (any(annot$middle > 10000.0)) {
+            stop('$middle should be in Mbp not bp')
+        } 
     }
     
     ###########################################################################
@@ -184,6 +191,9 @@ CheckDataset <- function(d) {
         stop('mouse.id not found in annot.samples')
     }
     
+    if (any(duplicated(ds$annot.sample$mouse.id))) {
+        stop("There are duplicated mouse.id annotations in annot.samples")
+    }
     
     ###########################################################################
     #
@@ -271,7 +281,7 @@ CheckDataset <- function(d) {
     #
     ###########################################################################
     print("Checking display.name")
-
+    
     if ('display.name' %not in% names(ds)) {
         warning('display.name not found, will use dataset name')
     }
@@ -347,7 +357,7 @@ CheckDataset <- function(d) {
     
     
     
-
+    
 }
 
 PerformChecks <- function() {
@@ -355,6 +365,10 @@ PerformChecks <- function() {
     
     if (gtools::invalid(datasets)) {
         stop("No datasets found!")
+    }
+    
+    if (!exists('ensembl.version')) {
+        stop("ensembl.version does not exist")
     }
     
     # Check genoprobs and K.

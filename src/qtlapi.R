@@ -328,38 +328,7 @@ get_dataset_stats <- function() {
 }
 
 
-#' Loop through the datasets to see if the id is used.
-#' 
-#' @param id The identifier.
-#' 
-#' @return A named list of all the dataset objects.
-#' 
-has_annotation <- function(id) {
-    datasets <- grep('^dataset*', apropos('dataset\\.'), value = TRUE)
-    ret <- c()
-    
-    for (d in datasets) {
-        ds <- get(d)
-        data <- get_data(d)
-        
-        found <- FALSE
-
-        if (id %in% colnames(data)) {
-            found <- TRUE
-        }
-
-        temp <- list(id      = id,
-                     dataset = d,
-                     found   = found) 
-
-        ret <- c(ret, list(temp))
-    }
-    
-    ret
-}
-
-
-#' Perform a LOD scan
+#' Perform a LOD scan.
 #' 
 #' @param dataset The dataset identifier.
 #' @param id The identifier.
@@ -379,9 +348,6 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
     if (gtools::invalid(idx)) {
         stop(sprintf('id "%s" not found', id))
     }
-    
-    # grab the data for the id
-    id_data <- data[, id, drop = FALSE]
     
     # make sure num_cores is appropriate  
     num_cores = nvl_int(cores, 0)
@@ -440,7 +406,7 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
     # - intcovar should be just the interactive covariate column
     temp <- scan1(genoprobs = genoprobs,
                   kinship   = K,
-                  pheno     = id_data, 
+                  pheno     = data[, id, drop = FALSE], 
                   addcovar  = covar, 
                   intcovar  = interactive_covariate,
                   cores     = num_cores,
@@ -448,9 +414,9 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
     
     # construct a 2 dimensional array of data with id, chr, pos, lod as columns
     # we perform a left join here to make sure that the number of elements match
-    left_join(as_tibble(temp, rownames = 'marker.id'), 
-              markers, 
-              by = 'marker.id') %>% 
+    inner_join(as_tibble(temp, rownames = 'marker.id'), 
+               markers, 
+               by = 'marker.id') %>% 
         select(id = marker.id, chr, pos, lod = id)
 }
 
@@ -563,10 +529,11 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
                       reml      = TRUE)
         
         # construct a 2 dimensional array of data with id, chr, pos, lod
-        ret[[toString(u)]] <- tibble(id  = markers_chrom$marker.id,
-                                     chr = markers_chrom$chr,
-                                     pos = markers_chrom$pos,
-                                     lod = temp[, 1])
+        ret[[toString(u)]] <- 
+            inner_join(as_tibble(temp, rownames = 'marker.id'), 
+                       markers, 
+                       by = 'marker.id') %>% 
+            select(id = marker.id, chr, pos, lod = id)
     }
     
     ret
@@ -665,10 +632,12 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                                                 na.rm = TRUE)
         }
         
-        ret[['additive']] <- as_tibble(data.frame(id = names(map[[chrom]]), 
-                                                  chr = chrom, 
-                                                  pos = map[[chrom]], 
-                                                  temp[,LETTERS[1:8]]))
+        ret[['additive']] <- 
+            inner_join(as_tibble(temp, rownames = 'marker.id'), 
+                       markers, 
+                       by = 'marker.id') %>% 
+            select(id = marker.id, chr, pos, LETTERS[1:8])
+
     } else {
         if (intcovar %not in% ds$covar.info$sample.column) {
             stop(sprintf('covar "%s" not found in %s$covar.info', intcovar, dataset))
@@ -731,10 +700,11 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                                                     na.rm = TRUE)
             }
             
-            ret[[toString(u)]] <- as_tibble(data.frame(id = names(map[[chrom]]), 
-                                                       chr = chrom, 
-                                                       pos = map[[chrom]], 
-                                                       temp[, LETTERS[1:8]]))
+            ret[[toString(u)]] <-
+                inner_join(as_tibble(temp, rownames = 'marker.id'), 
+                           markers, 
+                           by = 'marker.id') %>% 
+                select(id = marker.id, chr, pos, LETTERS[1:8])
         }
     }
     
