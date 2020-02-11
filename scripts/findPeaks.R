@@ -59,8 +59,8 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
 
                 output <- data.frame(intCovar  = 'additive', 
                                      annot.id  = id, 
-                                     marker.id = maxLodScores$id, 
-                                     lod       = maxLodScores$lod,
+                                     marker.id = t_score$id, 
+                                     lod       = t_score$lod,
                                      t(af[, LETTERS[1:8]]))
 
                 write.table(output,

@@ -1041,46 +1041,38 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
     }
     
     if (tolower(ds$datatype) == 'mrna') {
-        temp <- merge(x    = ds$annot.mrna[, c('gene.id', 'symbol', 'chr', 'start', 'end')], 
-                      y    = peaks[, c('gene.id', 'marker.id', 'lod')], 
-                      by.x = 'gene.id', 
-                      by.y = 'gene.id')
-        
-        temp$gene.pos <- (temp$start + temp$end) / 2.0
-        colnames(temp)[3] <- 'gene.chr'
-        
-        return (merge(x    = markers[, c('marker.id', 'chr', 'pos')],
-                      y    = temp[, c('gene.id', 'symbol', 'gene.chr', 'gene.pos', 'lod', 'marker.id')], 
-                      by.x = 'marker.id', 
-                      by.y = 'marker.id'))
+        return (
+            ds$annot.mrna %>%
+                inner_join(peaks, by = 'gene.id') %>% 
+                select(gene.id, symbol, gene.chr = chr, start, end, marker.id, lod) %>%
+                mutate(gene.pos = (start + end) / 2.0) %>%
+                inner_join(markers, by = 'marker.id') %>%
+                select(marker.id, chr, pos, gene.id, symbol, gene.chr, gene.pos, lod) %>%
+                arrange(chr, pos)
+        )
     } else if (tolower(ds$datatype) == 'protein') {
-        temp <- merge(x    = ds$annot.protein[,c('protein.id', 'gene.id', 'symbol', 'chr', 'start', 'end')], 
-                      y    = peaks[, c('protein.id', 'marker.id', 'lod')], 
-                      by.x = 'protein.id', 
-                      by.y = 'protein.id')
-        
-        temp$gene.pos <- (temp$start + temp$end) / 2.0
-        colnames(temp)[4] <- 'gene.chr'
-        
-        return (merge(x    = markers[, c('marker.id', 'chr', 'pos')],
-                      y    = temp[, c('protein.id', 'gene.id', 'symbol','gene.chr', 'gene.pos', 'lod', 'marker.id')],
-                      by.x = 'marker.id', 
-                      by.y = 'marker.id'))                      
+        return (
+            ds$annot.protein %>%
+                inner_join(peaks, by = 'protein.id') %>% 
+                select(protein.id, gene.id, symbol, gene.chr = chr, start, end, marker.id, lod) %>%
+                mutate(gene.pos = (start + end) / 2.0) %>%
+                inner_join(markers, by = 'marker.id') %>%
+                select(marker.id, chr, pos, protein.id, gene.id, symbol, gene.chr, gene.pos, lod) %>%
+                arrange(chr, pos)
+        )
     } else if(is_phenotype(ds)) {
-        temp <- merge(x    = ds$annot.phenotype[,c('data.name', 'short.name', 'description')], 
-                      y    = peaks[, c('data.name', 'marker.id', 'lod')], 
-                      by.x = 'data.name', 
-                      by.y = 'data.name')
-        
-        return (merge(x    = markers[, c('marker.id', 'chr', 'pos')],
-                      y    = temp, 
-                      by.x = 'marker.id', 
-                      by.y = 'marker.id'))
+        return (
+            ds$annot.phenotype %>%
+                inner_join(peaks, by = 'data.name') %>% 
+                select(data.name, short.name, description, marker.id, lod) %>%
+                inner_join(markers, by = 'marker.id') %>%
+                select(marker.id, chr, pos, data.name, short.name, description, lod) %>%
+                arrange(chr, pos)
+        )
     } else {
         stop('invalid datatype')
     }
 }    
-
 
 #' Get the LOD peaks
 #' 
