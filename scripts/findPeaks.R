@@ -34,71 +34,89 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
 
         # get the lod scan
         lodScores <- get_lod_scan(dataset, id, cores = nCores)
-
-        maxLodScores <- lodScores %>% 
-                        group_by(chr) %>% 
-                        top_n(1, lod) %>%
-                        filter(lod > 6.0)
-
-        if (nrow(maxLodScores) > 0) {
-            # get the allele effects only for additive
-            print('getting data...')
-            ds_data <- get_data(dataset)
-
-            for (i in 1:nrow(maxLodScores)) {
-                t_score <- maxLodScores[i, ]
-                t_chr <- t_score$chr
-                t_marker <- t_score$id
-                t_probs <- list()
-                t_probs[[t_chr]] <- genoprobs[[t_chr]][,,t_marker, drop = FALSE]
-
-                af <- scan1blup(genoprobs = t_probs,
-                                pheno     = ds_data[, id, drop = FALSE],
-                                kinship   = K[[t_chr]])
-    
-
-                output <- data.frame(intCovar  = 'additive', 
-                                     annot.id  = id, 
-                                     marker.id = t_score$id, 
-                                     lod       = t_score$lod,
-                                     t(af[, LETTERS[1:8]]))
-
-                write.table(output,
-                            fileName,
-                            sep = ",", 
-                            row.names = FALSE, 
-                            col.names = FALSE, 
-                            append = TRUE)
-            }
-        }
-
+        lodScores$scan <- 'additive'
+        lodScoresAdditive <- lodScores
+        
+        covar_columns <- c('additive')
+        
+        
         # loop through interactive covariates
         for (i in 1:nrow(ds$covar.info)) {
             inf <- ds$covar.info[i, ]
             if (inf$interactive) {
-
+                
                 print(paste0('GetLODScan: ', dataset, ', ', id, ', ', inf$sample.column))
                 lodScoresCovar <- get_lod_scan(dataset, id, intcovar = inf$sample.column, cores = nCores)
-
+                
                 # DO NOT STORE LOD, SCORE LOD DIFF
-                temp <- merge(x=lodScores, y=lodScoresCovar[,c("id", "lod")], by="id", all.x=TRUE)
-                temp$lod <- temp$lod.y - temp$lod.x
-                temp$lod.x <- NULL
-                temp$lod.y <- NULL
-
-                maxLodScoresCovar <- temp %>% 
-                                     group_by(chr) %>% 
-                                     top_n(1, lod) %>%
-                                     filter(lod > 6.0)
-
-                if (nrow(maxLodScoresCovar) > 0) {
-                    maxLodScoresCovar <- data.frame(intCovar=inf$sample.column, annot.id=id, marker.id=maxLodScoresCovar$id, lod=maxLodScoresCovar$lod)
-                    write.table(maxLodScoresCovar,
-                                fileName,
-                                sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
-                }
+                temp <- lodScoresAdditive %>% 
+                    inner_join(lodScoresCovar, by=c('id' = 'id')) %>% 
+                    mutate(lod = lod.y - lod.x) %>% 
+                    select(id, chr=chr.x, pos=pos.x, lod)
+                
+                temp$scan <- inf$sample.column
+                covar_columns <- c(covar_columns, inf$sample.column)
+                
+                lodScores <- lodScores %>% bind_rows(temp)
             }
         }
+    
+    
+        maxLodScores <- lodScores %>% 
+            group_by(scan, chr) %>%     # group by
+            top_n(1, lod) %>%           # greatest lod score
+            filter(lod > 6.0) %>%       # filter
+            arrange(chr, pos) %>%       # sort
+            data.frame() %>%            # remove the grouping variables stored by tibble
+            as_tibble()                 # back to a tibble
+        
+        newLodScores <- maxLodScores %>% 
+            select(id) %>% 
+            inner_join(lodScores %>% filter(scan == 'additive'), by=c('id' = 'id')) %>% 
+            select(id, additive = lod)
+        
+        for (i in 1:nrow(ds$covar.info)) {
+            inf <- ds$covar.info[i, ]
+            if (inf$interactive) {
+                
+                temp <- newLodScores %>% 
+                    select(id) %>% 
+                    inner_join(lodScores %>% filter(scan == inf$sample.column), by=c('id' = 'id')) %>%
+                    select(id, UQ(as.name(inf$sample.column)) := lod)            
+                
+                newLodScores <- newLodScores %>% bind_cols(temp[,inf$sample.column])
+            }
+        }
+    
+        if (nrow(newLodScores) > 0) {
+            allLods <- newLodScores %>% 
+                add_column(annot.id = id, .before=1) %>%
+                rename(marker.id = id)
+            
+            allLodsFull <- allLods %>%
+                inner_join(markers, by = c('marker.id' = 'marker.id')) %>%
+                select(annot.id, marker.id, chr, pos, additive)
+            
+            # get the allele effects only for additive
+            ds_data <- get_data(dataset)
+            
+            for (i in 1:nrow(allLodsFull)) {
+                t_score <- allLodsFull[i, ]
+                t_chr <- t_score$chr
+                t_marker <- t_score$marker.id
+                t_probs <- list()
+                
+                t_probs[[t_chr]] <- genoprobs[[t_chr]][,,t_marker, drop = FALSE]
+                
+                af <- scan1blup(genoprobs = t_probs,
+                                pheno     = ds_data[, id, drop = FALSE],
+                                kinship   = K[[t_chr]])
+                
+                output <- allLods[i, ] %>% bind_cols(as_tibble(t(af[, LETTERS[1:8]])))
+                
+                readr::write_csv(output, fileName, col_names = (i == 1), append = (i != 1))
+            }
+        }    
     }
 }
 
@@ -111,11 +129,13 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
 # 5 == step size
 # 6 == number of cores
 
-args <- commandArgs(trailingOnly = TRUE)
-print(paste0('Loading: ', args[1]))
-load(args[1])
-debug_mode <- TRUE
-print(paste0('Sourcing: ', args[2]))
-source(args[2])
-find_peaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
-print('DONE')
+#args <- commandArgs(trailingOnly = TRUE)
+#print(paste0('Loading: ', args[1]))
+#load(args[1])
+#debug_mode <- TRUE
+#print(paste0('Sourcing: ', args[2]))
+#source(args[2])
+#find_peaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
+#print('DONE')
+
+peaks <- find_peaks('deleteme', 'dataset.mrna', 825, 1)

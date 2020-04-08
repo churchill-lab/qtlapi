@@ -59,17 +59,17 @@ generate_shell_scripts <- function(file_name_data, outdir) {
         
         for (x in seq(1, cols, batch_size)) {
             # build the string
-            command <- 'qsub '
+            command <- 'sbatch '
             command <- paste0(command, '-o ', file_name_out, ' ')
             command <- paste0(command, '-e ', file_name_error, ' ')
-            command <- paste0(command, '-N ', file_name_base, '_', x, ' ')
-            command <- paste0(command, '-v FINDPEAKSR=', G_FINDPEAKSR, ',')
-            command <- paste0(command, 'DATAFILE=', file_name_data, ',')
-            command <- paste0(command, 'QTLAPISOURCE=', G_QTLAPISOURCE, ',')
-            command <- paste0(command, 'OUTPUTFILE=', file_name_base, '.PEAKS.out,')
-            command <- paste0(command, 'DATASET=', ds_name, ',')
-            command <- paste0(command, 'START=', x, ',')
-            command <- paste0(command, 'STEP=', batch_size, ' ')
+            command <- paste0(command, '--job-name=', file_name_base, '_', x, ' ')
+            command <- paste0(command, '-v FINDPEAKSR=', G_FINDPEAKSR, ' ')
+            command <- paste0(command, '-v DATAFILE=', file_name_data, ' ')
+            command <- paste0(command, '-v QTLAPISOURCE=', G_QTLAPISOURCE, ' ')
+            command <- paste0(command, '-v OUTPUTFILE=', file_name_base, '.PEAKS.out ')
+            command <- paste0(command, '-v DATASET=', ds_name, ' ')
+            command <- paste0(command, '-v START=', x, ' ')
+            command <- paste0(command, '-v STEP=', batch_size, ' ')
             command <- paste0(command, G_FINDPEAKSSH)
             
             cat(command, file=file_name_sh, sep="\n", append = T)

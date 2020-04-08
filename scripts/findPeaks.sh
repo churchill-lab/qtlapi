@@ -1,4 +1,9 @@
-#PBS -l nodes=1:ppn=8,walltime=08:00:00
+#!/usr/bin/env bash
+#SBATCH --partition=compute
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8
+#SBATCH --mem=6g
+#SBATCH --time=02:00:00
 
 module load R/3.6.0
 
