@@ -752,8 +752,11 @@ get_expression <- function(dataset, id) {
                select(c('mouse.id', names(datatypes)))
     
     # bind the data
-    output <- cbind(samples, expression = data[, idx])
-    
+    output <- samples %>% 
+        inner_join(tibble(mouse.id = rownames(data), 
+                          expression = data[,idx]), 
+                   by = c('mouse.id' = 'mouse.id')) 
+
     list(data = output, 
          datatypes = datatypes)
 }    
