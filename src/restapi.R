@@ -593,7 +593,7 @@ http_get_correlation_plot_data <- function(request, response) {
 
 application$add_get(path = '/datasets', FUN = http_get_dataset, add_head = FALSE)
 application$add_get(path = '/datasetsstats', FUN = http_get_dataset_stats, add_head = FALSE)
-application$add_get(path = '/hasannotation', FUN = http_has_annotation, add_head = FALSE)
+#application$add_get(path = '/hasannotation', FUN = http_has_annotation, add_head = FALSE)
 application$add_get(path = '/lodscan', FUN = http_get_lodscan, add_head = FALSE)
 application$add_get(path = '/lodscansamples', FUN = http_get_lodscan_samples, add_head = FALSE)
 application$add_get(path = '/foundercoefs', FUN = http_get_foundercoefficients, add_head = FALSE)
