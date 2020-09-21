@@ -4,6 +4,9 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
     print(paste0('start: ', start))
     print(paste0('step: ', step))
 
+    output <- FALSE
+    first <- TRUE
+    
     # get the dataset
     ds = get_dataset(dataset)
 
@@ -87,6 +90,7 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
                 newLodScores <- newLodScores %>% bind_cols(temp[,inf$sample.column])
             }
         }
+        
     
         if (nrow(newLodScores) > 0) {
             allLods <- newLodScores %>% 
@@ -112,12 +116,18 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
                                 pheno     = ds_data[, id, drop = FALSE],
                                 kinship   = K[[t_chr]])
                 
-                output <- allLods[i, ] %>% bind_cols(as_tibble(t(af[, LETTERS[1:8]])))
-                
-                readr::write_csv(output, fileName, col_names = (i == 1), append = (i != 1))
+                if (first) {
+                    first <- FALSE
+                    output <- allLods[i, ] %>% bind_cols(as_tibble(t(af[, LETTERS[1:8]])))
+                } else {
+                    temp_out <- allLods[i, ] %>% bind_cols(as_tibble(t(af[, LETTERS[1:8]])))
+                    output <- output %>% bind_rows(temp_out)
+                }
             }
         }    
     }
+    
+    readr::write_csv(output, fileName, col_names = TRUE, append = FALSE)
 }
 
 
@@ -129,13 +139,13 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
 # 5 == step size
 # 6 == number of cores
 
-#args <- commandArgs(trailingOnly = TRUE)
-#print(paste0('Loading: ', args[1]))
-#load(args[1])
-#debug_mode <- TRUE
-#print(paste0('Sourcing: ', args[2]))
-#source(args[2])
-#find_peaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
-#print('DONE')
+args <- commandArgs(trailingOnly = TRUE)
+print(paste0('Loading: ', args[1]))
+load(args[1])
+debug_mode <- TRUE
+print(paste0('Sourcing: ', args[2]))
+source(args[2])
+find_peaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
+print('DONE')
 
-peaks <- find_peaks('deleteme', 'dataset.mrna', 825, 1)
+#peaks <- find_peaks('deleteme3', 'dataset.DOheart.mrna',  1, 3, 5)
