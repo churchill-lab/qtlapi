@@ -119,34 +119,6 @@ http_get_dataset_stats <- function(request, response) {
     })
 }
 
-
-http_has_annotation <- function(request, response) {
-    result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-
-        id <- request$parameters_query[['id']]
-    
-        annotation_info <- has_annotation(id)
-    
-        elapsed <- proc.time() - ptm
-        
-        logger$info(paste0('http_has_annotation - time: ', elapsed['elapsed']))
-
-        response$body <- toJSON(list(result = annotation_info,
-                                     time   = elapsed['elapsed']),
-                                auto_unbox = TRUE)
-    },
-    error = function(cond) {
-        logger$error(sprintf('ERROR: http_has_annotation - %s', cond$message))
-        response$status_code <- 400
-        response$body <- toJSON(list(method = 'http_has_annotation',
-                                     error  = cond$message),
-                                auto_unbox = TRUE)
-    })
-}
-
-
 http_get_lodscan <- function(request, response) {
     #' ---
     #' get: 

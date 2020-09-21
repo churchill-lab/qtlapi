@@ -1053,10 +1053,10 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
             arrange(chr, pos)
         
         # now add A-H for additive if they exist
-        #if (all(LETTERS[1:8] %in% colnames(peaks))) {
-        #    ret <- ret %>%
-        #        inner_join(peaks, by = c('gene.id', 'marker.id', 'lod'))
-        #}
+        if (all(LETTERS[1:8] %in% colnames(peaks))) {
+            ret <- ret %>%
+                inner_join(peaks, by = c('gene.id', 'marker.id', 'lod'))
+        }
     } else if (tolower(ds$datatype) == 'protein') {
         ret <-ds$annot.protein %>%
             inner_join(peaks, by = 'protein.id') %>% 
@@ -1067,10 +1067,10 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
             arrange(chr, pos)
         
         # now add A-H for additive if they exist
-        #if (all(LETTERS[1:8] %in% colnames(peaks))) {
-        #    ret <- ret %>%
-        #        inner_join(peaks, by = c('protein.id', 'marker.id', 'lod'))
-        #}
+        if (all(LETTERS[1:8] %in% colnames(peaks))) {
+            ret <- ret %>%
+                inner_join(peaks, by = c('protein.id', 'marker.id', 'lod'))
+        }
     } else if(is_phenotype(ds)) {
         ret <- ds$annot.phenotype %>%
             inner_join(peaks, by = 'data.name') %>% 
@@ -1080,10 +1080,10 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
             arrange(chr, pos)
         
         # now add A-H for additive if they exist
-        #if (all(LETTERS[1:8] %in% colnames(peaks))) {
-        #    ret <- ret %>%
-        #        inner_join(peaks, by = c('data.name', 'marker.id', 'lod'))
-        #}
+        if (all(LETTERS[1:8] %in% colnames(peaks))) {
+            ret <- ret %>%
+                inner_join(peaks, by = c('data.name', 'marker.id', 'lod'))
+        }
     } else {
         stop('invalid datatype')
     }
