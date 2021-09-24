@@ -501,7 +501,7 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0,
         # variation of mOuSE.Id
         rownames(samples) <- 
             (samples %>% select(matches('^mouse\\.id$')))[[1]]
-
+        
         # create a string (model formula) from the use.covar column
         formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
         
@@ -567,6 +567,132 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0,
                by = 'marker.id') %>% 
         select(id = marker.id, chr, pos, lod = id) %>%
         mutate_at(c("lod"), as.numeric)
+}
+
+
+#' Perform a LOD scan.
+#' 
+#' @param dataset The dataset identifier.
+#' @param id The identifier.
+#' @param covar The interactive covariate.
+#' @param cores number of cores to use (0=ALL).
+#' @param filter_threshold if set, qtl2::find_peaks is used
+#' @param filter_peak_drop if set, qtl2::find_peaks is used
+#' @param filter_thresholdX if set, qtl2::find_peaks is used
+#' @param filter_peak_dropX if set, qtl2::find_peaks is used
+#' 
+#' @return A tibble with the following columns: id, chr, pos, lod.
+#' 
+get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0, 
+                         filter_threshold = 6.0, filter_peak_drop = Inf,
+                         filter_thresholdX = NULL, filter_peakdropX = NULL,
+                         scan1_output = FALSE) {
+    # get the dataset and the data
+    ds <- get_dataset(dataset)
+    data <- get_data(dataset)
+    
+    # check if id exists 
+    idx <- which(colnames(data) == id)
+    
+    if (gtools::invalid(idx)) {
+        stop(sprintf('id "%s" not found', id))
+    }
+    
+    # make sure num_cores is appropriate  
+    num_cores = nvl_int(cores, 0)
+    
+    if (is_phenotype(ds)) {
+        # get the annot.pheno row to get use.covar variable from the annotations
+        pheno <- ds$annot.pheno %>% filter(data.name == id)
+        
+        if (gtools::invalid(pheno)) {
+            stop(sprintf('id (data.name) "%s" not found in annot.phenotype', id))
+        }
+        
+        # convert samples to data.frame because QTL2 relies heavily
+        # on rownames and colnames, rownames currently are or will
+        # soon be deprecated in tibbles
+        samples <- as.data.frame(ds$annot.samples)
+        
+        # set the rownames so scan1 will work, finding a match to some
+        # variation of mOuSE.Id
+        rownames(samples) <- 
+            (samples %>% select(matches('^mouse\\.id$')))[[1]]
+
+        # create a string (model formula) from the use.covar column
+        formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
+        
+        # [, -1, drop = FALSE] will drop the (Intercept) column
+        covar <- model.matrix(as.formula(formula_str), data = samples)
+        covar <- covar[, -1, drop = FALSE]
+    } else {
+        covar <- NULL
+        
+        if (!gtools::invalid(ds$covar.matrix)) {
+            covar <- ds$covar.matrix    
+        }
+    } 
+    
+    # set the interactive.covariate, to be used in scan1
+    # as scan1(intcovar=interactive_covariate)
+    interactive_covariate <- NULL
+    
+    if (!gtools::invalid(intcovar)) {
+        if (intcovar %not in% ds$covar.info$sample.column) {
+            stop(sprintf('intcovar "%s" not found in %s$covar.info', 
+                         intcovar, 
+                         dataset))
+        }
+        
+        # grabbing all the columns from covar (covar.matrix) that
+        # match, i.e., "batch" will match "batch2", "BATCH3", etc
+        interactive_covariate <-
+            covar[, which(grepl(intcovar, colnames(covar), ignore.case = T))]
+    }
+    
+    # perform the scan using QTL2, 
+    # - addcovar should always be ALL covars
+    # - intcovar should be just the interactive covariate column
+    lod_scores <- scan1(genoprobs = genoprobs,
+                        kinship   = K,
+                        pheno     = data[, id, drop = FALSE], 
+                        addcovar  = covar, 
+                        intcovar  = interactive_covariate,
+                        cores     = num_cores,
+                        reml      = TRUE)
+    
+    # utilize qtl2::find_peaks
+    lod_peaks <- qtl2::find_peaks(lod_scores, map, 
+                                  threshold = filter_threshold, 
+                                  peakdrop = filter_peak_drop,
+                                  thresholdX = filter_thresholdX,
+                                  peakdropX = filter_peakdropX)
+    
+    # construct a 2 dimensional array of data with id, chr, pos, lod as columns
+    # we perform a left join here to make sure that the number of elements match
+    # convert from type scan1 to numeric
+    lod_scores_mod <- inner_join(as_tibble(lod_scores, rownames = 'marker.id'), 
+                                 markers, 
+                                 by = 'marker.id') %>% 
+        select(id = marker.id, chr, pos, lod = id) %>%
+        mutate_at(c("lod"), as.numeric)
+
+    lod_peaks <- inner_join(lod_peaks,
+                            markers, 
+                            by = c("chr","pos")) %>%
+        select(id = marker.id, chr, pos, lod) %>%
+        mutate_at(c("lod"), as.numeric) %>% 
+        as_tibble
+    
+
+    ret <- list(lod_peaks = lod_peaks, lod_scores = lod_scores_mod)
+    
+    if(scan1_output) {
+        ret$scan1 <- lod_scores
+    }
+    
+    return(ret)
+    
 }
 
 
