@@ -202,6 +202,48 @@ is_phenotype <- function(dataset) {
     FALSE
 }
 
+#' Synch up sample IDs between objects.
+#'
+#' If each object exists, we get the intersection of the sample IDs,
+#' sort them and subset each object.
+#'
+#' @param pheno matrix or data.frame containing the phenotypes. Sample IDs 
+#'     must be in rownames. Required.
+#' @param probs numeric matrix containing the founder allele probabilities. 
+#'     Sample IDs must be in rownames. Required.
+#' @param expr  numeric matrix containing the gene expression data. Sample IDs 
+#'     must be in rownames. Required.
+#' @param covar numeric matrix containing the mapping covariates. Sample IDs 
+#'     must be in rownames. Optional.
+#'
+#' @return list with three elements: pheno, probs, expr and covar. Sample IDs 
+#'     will all be in the same order.
+#' @export
+synch_samples = function(pheno, probs, expr, covar=NULL) {
+
+    samples = intersect(rownames(pheno), rownames(probs))
+    samples = intersect(samples, rownames(expr))
+    if(!is.null(covar)) {
+        samples = intersect(samples, rownames(covar))
+    }
+
+    if(length(samples) == 0) {
+        stop("There are no samples in common. Please check the rownames on all objects.")
+    }
+
+    samples = sort(samples)
+    pheno = pheno[samples, , drop = FALSE]
+    probs = probs[samples, , drop = FALSE]
+    expr  = expr[samples, , drop = FALSE]
+
+    if(!missing(covar)) {
+        covar = covar[samples, , drop = FALSE]
+    }
+
+    list(pheno = pheno, probs = probs, expr = expr, covar = covar)
+}
+
+
 
 #' Get the dataset by id (a string)
 #' 
@@ -328,16 +370,106 @@ get_dataset_stats <- function() {
 }
 
 
+#' Calculate the rankings for which gene/protein should be shown.
+#' 
+#' @param dataset The dataset identifier.
+#' @param chrom The chromosome to filter on.
+#' @param min_value Minimum score value (defaults to 100).
+#' @param max_value Maximum score value (defaults to 1000).
+#' 
+#' @return A tibble with the following columns: id, ranking
+#' 
+get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 1000) {
+    # get the dataset and the data
+    ds <- get_dataset(dataset)
+    
+    if(is_phenotype(ds)) {
+        stop('phenotype dataset is not yet supported')
+    }
+    
+    # different than get_data()
+    # raw, norm, rz, log, transformed
+    if (is.matrix(ds$data)) {
+        data <- ds$data
+    } else {
+        if (!is.null(ds$data$raw)) {
+            data <- ds$data$raw
+        } else if (!is.null(ds$data$norm)) {
+            data <- ds$data$norm
+        } else if (!is.null(ds$data$rz)) {
+            data <- ds$data$rz
+        } else if (!is.null(ds$data$log)) {
+            data <- ds$data$log
+        } else if (!is.null(ds$data$transformed)) {
+            data <- ds$data$transformed
+        }
+    }
+    
+    #data_mean <- colMeans(data, na.rm = TRUE)
+    #data_ranks <- data_mean - min(data_mean)
+    #data_ranks <- (data_ranks/max(data_ranks)) * max_value
+    #tmp <- data_ranks
+    
+    data_mean <- colMeans(data, na.rm = TRUE)
+
+    min_data_mean = min(data_mean)
+    max_data_mean = max(data_mean)
+    
+    tmp <- (data_mean - min_data_mean) / (max_data_mean - min_data_mean)
+    tmp <- (max_value - min_value) * tmp + min_value
+
+    if (tolower(ds$datatype) == 'mrna') {
+        if (!is.null(chrom)) {
+            # filter the data to just return the chromosome asked for
+            gene_ids <- ds$annot.mrna[ds$annot.mrna$chr == chrom,]$gene.id
+            tmp <- tmp[gene_ids]
+        }
+        
+        return(tibble(gene_id = names(tmp), 
+                      ranking = as.integer(tmp)) %>%
+                   # group by gene_id
+                   group_by(gene_id) %>% 
+                   # take the max gene_id ranking value
+                   summarise(ranking = max(ranking))
+        )
+        
+        
+    } else {
+        if (!is.null(chrom)) {
+            # filter the data to just return the chromosome asked for
+            protein_ids <- ds$annot.protein[ds$annot.protein$chr == chrom,]$protein.id
+            tmp <- tmp[protein_ids]
+        }
+        
+        return(tibble(id      = names(tmp), 
+                      ranking = as.integer(tmp)) %>%
+                   inner_join(ds$annot.protein, 
+                              by = c("id" = "protein.id")) %>% 
+                   select(protein_id = id, gene_id = gene.id, ranking) %>%
+                   # group by gene_id
+                   group_by(gene_id) %>% 
+                   # take the max gene_id ranking value
+                   summarise(ranking = max(ranking))
+        )
+    }
+}
+
 #' Perform a LOD scan.
 #' 
 #' @param dataset The dataset identifier.
 #' @param id The identifier.
 #' @param covar The interactive covariate.
 #' @param cores number of cores to use (0=ALL).
+#' @param filter_threshold if set, qtl2::find_peaks is used
+#' @param filter_peak_drop if set, qtl2::find_peaks is used
+#' @param filter_thresholdX if set, qtl2::find_peaks is used
+#' @param filter_peak_dropX if set, qtl2::find_peaks is used
 #' 
 #' @return A tibble with the following columns: id, chr, pos, lod.
 #' 
-get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
+get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0, 
+                         filter_threshold = NULL, filter_peak_drop = Inf,
+                         filter_thresholdX = NULL, filter_peakdropX = NULL) {
     # get the dataset and the data
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
@@ -412,12 +544,29 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0) {
                   cores     = num_cores,
                   reml      = TRUE)
     
+    # utilize qtl2::find_peaks if filter_threshold is set
+    if (!gtools::invalid(filter_threshold)) {
+        temp <- qtl2::find_peaks(temp, map, 
+                                 threshold = filter_threshold, 
+                                 peakdrop = filter_peak_drop,
+                                 thresholdX = filter_thresholdX,
+                                 peakdropX = filter_peakdropX)
+        
+        return(inner_join(temp,
+                          markers, 
+                          by = c("chr","pos")) %>%
+                   select(id = marker.id, chr, pos, lod) %>%
+                   mutate_at(c("lod"), as.numeric) %>% as_tibble)
+    }
+    
     # construct a 2 dimensional array of data with id, chr, pos, lod as columns
     # we perform a left join here to make sure that the number of elements match
+    # convert from type scan1 to numeric
     inner_join(as_tibble(temp, rownames = 'marker.id'), 
                markers, 
                by = 'marker.id') %>% 
-        select(id = marker.id, chr, pos, lod = id)
+        select(id = marker.id, chr, pos, lod = id) %>%
+        mutate_at(c("lod"), as.numeric)
 }
 
 
@@ -529,11 +678,12 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
                       reml      = TRUE)
         
         # construct a 2 dimensional array of data with id, chr, pos, lod
-        ret[[toString(u)]] <- 
-            inner_join(as_tibble(temp, rownames = 'marker.id'), 
-                       markers, 
-                       by = 'marker.id') %>% 
-            select(id = marker.id, chr, pos, lod = id)
+        # convert from type scan1 to numeric
+        ret[[toString(u)]] <- inner_join(as_tibble(temp, rownames = 'marker.id'), 
+                                         markers, 
+                                         by = 'marker.id') %>% 
+                                  select(id = marker.id, chr, pos, lod = id) %>%
+                                  mutate_at(c("lod"), as.numeric)
     }
     
     ret
@@ -550,7 +700,7 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
 #' @param center whether or not to center the data
 #' @param cores Number of cores to use (0=ALL).
 #' 
-#' @return A nameds list with each element being a tibble with the following 
+#' @return A named list with each element being a tibble with the following 
 #'         columns: id, chr, pos, and A-H
 #' 
 get_founder_coefficients <- function(dataset, id, intcovar, chrom, 
@@ -636,8 +786,8 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
             inner_join(as_tibble(temp, rownames = 'marker.id'), 
                        markers, 
                        by = 'marker.id') %>% 
-            select(id = marker.id, chr, pos, LETTERS[1:8])
-
+            select(id = marker.id, chr, pos, LETTERS[1:8]) %>%
+            mutate_at(vars(-c("id", "chr", "pos")), as.numeric)
     } else {
         if (intcovar %not in% ds$covar.info$sample.column) {
             stop(sprintf('covar "%s" not found in %s$covar.info', intcovar, dataset))
@@ -704,7 +854,8 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                 inner_join(as_tibble(temp, rownames = 'marker.id'), 
                            markers, 
                            by = 'marker.id') %>% 
-                select(id = marker.id, chr, pos, LETTERS[1:8])
+                select(id = marker.id, chr, pos, LETTERS[1:8]) %>%
+                mutate_at(vars(-c("id", "chr", "pos")), as.numeric)
         }
     }
     
@@ -1091,7 +1242,7 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
     ret
 }    
 
-#' Get the LOD peaks
+#' Get the LOD peaks for the additive and all covariates.
 #' 
 #' @param dataset The dataset identifier.
 #' 

@@ -1,9 +1,11 @@
-find_peaks <- function(fName, dataset, start, step, nCores = 0) {
+findPeaks <- function(fName, dataset, start, step, threshold = 6.0, drop = 2, nCores = 0) {
     print(paste0('fName: ', fName))
     print(paste0('dataset: ', dataset))
     print(paste0('start: ', start))
     print(paste0('step: ', step))
-
+    print(paste0('threshold: ', threshold))
+    print(paste0('drop: ', drop))
+    
     output <- FALSE
     first <- TRUE
     
@@ -36,7 +38,8 @@ find_peaks <- function(fName, dataset, start, step, nCores = 0) {
         print(paste0('GetLODScan: ', dataset, ', ', id))
 
         # get the lod scan
-        lodScores <- get_lod_scan(dataset, id, cores = nCores)
+        lodScores <- get_lod_scan(dataset, id, cores = nCores, 
+                                  filter_threshold = threshold, filter_peak_drop = drop)
         lodScores$scan <- 'additive'
         lodScoresAdditive <- lodScores
         
@@ -147,5 +150,6 @@ print(paste0('Sourcing: ', args[2]))
 source(args[2])
 find_peaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]))
 print('DONE')
+
 
 #peaks <- find_peaks('deleteme3', 'dataset.DOheart.mrna',  1, 3, 5)

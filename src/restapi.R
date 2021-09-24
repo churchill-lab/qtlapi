@@ -96,24 +96,63 @@ http_get_dataset <- function(request, response) {
 
 
 http_get_dataset_stats <- function(request, response) {
+  result <- tryCatch({
+    # start the clock
+    ptm <- proc.time()
+    
+    datasets <- get_dataset_info()
+    
+    elapsed <- proc.time() - ptm
+    
+    logger$info(paste0('http_get_dataset - time: ', elapsed['elapsed']))
+    
+    #logger$trace(paste0('time: ', elapsed['elapsed']))
+    #logger$debug(paste0('time: ', elapsed['elapsed']))
+    #logger$info(paste0('time: ', elapsed['elapsed']))
+    #logger$warning(paste0('time: ', elapsed['elapsed']))
+    #logger$error(paste0('time: ', elapsed['elapsed']))
+    #logger$fatal(paste0('time: ', elapsed['elapsed']))
+    
+    response$body <- toJSON(list(result = datasets,
+                                 time   = elapsed['elapsed']),
+                            auto_unbox = TRUE)
+  },
+  error = function(cond) {
+    logger$error(sprintf('ERROR: http_get_dataset - %s', cond$message))
+    response$status_code <- 400
+    response$body <- toJSON(list(method = 'http_get_dataset',
+                                 error  = cond$message),
+                            auto_unbox = TRUE)
+  })
+}
+
+
+http_get_rankings <- function(request, response) {
     result <- tryCatch({
         # start the clock
         ptm <- proc.time()
     
-        datasets <- get_dataset_stats()
-    
+        dataset <- request$parameters_query[['dataset']]
+        chrom <- request$parameters_query[['chrom']]
+        max_value <- nvl_int(request$parameters_query[['max_value']], 1000)
+
+        rankings <- get_rankings(dataset   = dataset,
+                                 chrom     = chrom,
+                                 max_value = max_value)
+        
         elapsed <- proc.time() - ptm
         
-        logger$info(paste0('http_get_dataset_stats - time: ', elapsed['elapsed']))
+        logger$info(paste0('http_get_rankings - time: ', elapsed['elapsed']))
 
-        response$body <- toJSON(list(result = datasets,
+        response$body <- toJSON(list(id     = dataset,
+                                     result = rankings,
                                      time   = elapsed['elapsed']),
                                 auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf('ERROR: http_get_dataset_stats - %s', cond$message))
+        logger$error(sprintf('ERROR: http_get_rankings - %s', cond$message))
         response$status_code <- 400
-        response$body <- toJSON(list(method = 'http_get_dataset_stats',
+        response$body <- toJSON(list(method = 'http_get_rankings',
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
@@ -433,46 +472,6 @@ http_get_snp_assoc_mapping <- function(request, response) {
 
 http_get_lod_peaks <- function(request, response) {
     result <- tryCatch({
-        # start the clock
-        ptm <- proc.time()
-        
-        dataset <- request$parameters_query[['dataset']]
-        intcovar <- request$parameters_query[['intcovar']]
-        expand <- nvl(request$parameters_query[['expand']], 'FALSE')
-        
-        if (tolower(nvl(intcovar, '')) %in% c('', 'additive')) {
-            intcovar <- NULL
-        }
-        
-        lod_peaks <- get_lod_peaks(dataset, intcovar)
-        
-        if (!(to_boolean(expand))) {
-            # by converting to data.frame and setting column names to NULL, 
-            # the result will be a 2 dimensional array
-            lod_peaks <- as.data.frame(lod_peaks)
-            colnames(lod_peaks) <- NULL
-        }
-
-        elapsed <- proc.time() - ptm
-        
-        logger$info(paste0('http_get_lod_peaks - time: ', elapsed['elapsed']))
-        
-        response$body <- toJSON(list(result = lod_peaks,
-                                     time   = elapsed['elapsed']),
-                                auto_unbox = TRUE)
-    },
-    error = function(cond) {
-        logger$error(sprintf('ERROR: http_get_lod_peaks - %s', cond$message))
-        response$status_code <- 400
-        response$body <- toJSON(list(method = 'http_get_lod_peaks',
-                                     error  = cond$message),
-                                auto_unbox = TRUE)
-    })
-}
-
-
-http_get_lod_peaks_all <- function(request, response) {
-    result <- tryCatch({
       # start the clock
       ptm <- proc.time()
       
@@ -493,7 +492,7 @@ http_get_lod_peaks_all <- function(request, response) {
       
       elapsed <- proc.time() - ptm
       
-      logger$info(paste0('http_get_lod_peaks_all - time: ', elapsed['elapsed']))
+      logger$info(paste0('http_get_lod_peaks - time: ', elapsed['elapsed']))
       
       response$body <- toJSON(list(id     = dataset,
                                    result = peaks,
@@ -501,9 +500,9 @@ http_get_lod_peaks_all <- function(request, response) {
                               auto_unbox = TRUE)
     },
     error = function(cond) {
-        logger$error(sprintf('ERROR: http_get_lod_peaks_all - %s', cond$message))
+        logger$error(sprintf('ERROR: http_get_lod_peaks - %s', cond$message))
         response$status_code <- 400
-        response$body <- toJSON(list(method = 'http_get_lod_peaks_all',
+        response$body <- toJSON(list(method = 'http_get_lod_peaks',
                                      error  = cond$message),
                                 auto_unbox = TRUE)
     })
@@ -589,10 +588,9 @@ http_get_correlation_plot_data <- function(request, response) {
 
 
 
-
-
 application$add_get(path = '/datasets', FUN = http_get_dataset, add_head = FALSE)
 application$add_get(path = '/datasetsstats', FUN = http_get_dataset_stats, add_head = FALSE)
+application$add_get(path = '/rankings', FUN = http_get_rankings, add_head = FALSE)
 #application$add_get(path = '/hasannotation', FUN = http_has_annotation, add_head = FALSE)
 application$add_get(path = '/lodscan', FUN = http_get_lodscan, add_head = FALSE)
 application$add_get(path = '/lodscansamples', FUN = http_get_lodscan_samples, add_head = FALSE)
@@ -601,7 +599,6 @@ application$add_get(path = '/expression', FUN = http_get_expression, add_head = 
 application$add_get(path = '/mediate', FUN = http_get_mediation, add_head = FALSE)
 application$add_get(path = '/snpassoc', FUN = http_get_snp_assoc_mapping, add_head = FALSE)
 application$add_get(path = '/lodpeaks', FUN = http_get_lod_peaks, add_head = FALSE)
-application$add_get(path = '/lodpeaksall', FUN = http_get_lod_peaks_all, add_head = FALSE)
 application$add_get(path = '/correlation', FUN = http_get_correlation, add_head = FALSE)
 application$add_get(path = '/correlationplot', FUN = http_get_correlation_plot_data, add_head = FALSE)
 

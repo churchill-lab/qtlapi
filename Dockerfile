@@ -1,6 +1,6 @@
-FROM mattjvincent/simplerestrserve:0.2.0
+FROM mattjvincent/simplerestrserve:0.4.0
 LABEL maintainer="Matthew Vincent <mattjvincent@gmail.com>" \
-	  version="0.5.0"
+	  version="0.6.0"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -8,16 +8,14 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# install the dependencies
-RUN R -e 'remotes::install_version("missMDA", version = "1.15")' \
- && R -e 'remotes::install_version("dbplyr", version = "1.4.2")' \
- && R -e 'remotes::install_version("pryr", version = "0.1.4")' \
- && R -e 'remotes::install_version("RSQLite", version = "2.2.0")' \
- && R -e 'remotes::install_version("gtools", version = "3.8.1")'
+# install the dependencies and qtl2
+RUN R -e 'remotes::install_version("missMDA", version = "1.18")' \
+ && R -e 'remotes::install_version("dbplyr", version = "2.1.1")' \
+ && R -e 'remotes::install_version("pryr", version = "0.1.5")' \
+ && R -e 'remotes::install_version("RSQLite", version = "2.2.7")' \
+ && R -e 'remotes::install_version("gtools", version = "3.9.2")' \
+ && R -e 'remotes::install_version("qtl2", version="0.24")'
  
-# install qtl2 tools
-RUN R -e 'remotes::install_github("rqtl/qtl2@0.20")'
-
 # install intermediate
 RUN R -e 'remotes::install_github("churchill-lab/intermediate@v.2.5")'
 
