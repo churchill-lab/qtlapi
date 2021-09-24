@@ -6,3 +6,4 @@ packrat
 temp
 packrat/lib*/
 .Rproj.user
+renv/
