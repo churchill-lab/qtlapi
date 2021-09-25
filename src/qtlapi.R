@@ -1298,7 +1298,7 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
 #' protein = protein_id, gene_id, symbol, gene_chrom, middle, lod
 #' phenotype = data_name, short_name, description, lod
 #' 
-get_lod_peaks <- function(dataset, intcovar = NULL) {
+get_lod_peaks_helper <- function(dataset, intcovar = NULL) {
     # get the dataset
     ds <- get_dataset(dataset)
     
@@ -1368,7 +1368,7 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
     ret
 }    
 
-#' Get the LOD peaks for the additive and all covariates.
+#' Get the LOD peaks for additive and all covariates.
 #' 
 #' @param dataset The dataset identifier.
 #' 
@@ -1378,12 +1378,12 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
 #' protein = protein_id, gene_id, symbol, gene_chrom, middle, lod
 #' phenotype = data_name, short_name, description, lod
 #' 
-get_lod_peaks_all <- function(dataset) {
+get_lod_peaks <- function(dataset) {
     # get the dataset
     ds = get_dataset(dataset)
     
     # get the additive LOD peaks
-    peaks <- list(additive = get_lod_peaks(dataset))
+    peaks <- list(additive = get_lod_peaks_helper(dataset))
     
     # get the rest
     for (i in seq(nrow(ds$covar.info))) {
@@ -1391,7 +1391,7 @@ get_lod_peaks_all <- function(dataset) {
         
         if (inf$interactive) {
             peaks[[inf$sample.column]] <- 
-                get_lod_peaks(dataset, inf$sample.column)
+                get_lod_peaks_helper(dataset, inf$sample.column)
         }
     } 
     
@@ -1399,7 +1399,7 @@ get_lod_peaks_all <- function(dataset) {
 }    
 
 
-#' Calculate the resudual matrix
+#' Calculate the residual matrix
 #' 
 #' @param variable_matrix The data  matrix for first set.
 #' @param adjust_matrix The data matrix for the second set.

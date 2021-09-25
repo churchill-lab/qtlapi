@@ -479,7 +479,7 @@ http_get_lod_peaks <- function(request, response) {
       expand <- nvl(request$parameters_query[['expand']], 'FALSE')
       
       # get the LOD peaks for each covarint
-      peaks <- get_lod_peaks_all(dataset)
+      peaks <- get_lod_peaks(dataset)
       
       if (!(to_boolean(expand))) {
             # by converting to data.frame and setting column names to NULL, 
