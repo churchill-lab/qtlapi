@@ -106,21 +106,28 @@ findPeaks <- function(fName, dataset, start, step, threshold = 6.0, peakdrop = 2
                 mutate_at(c("lod"), as.numeric) %>% 
                 as_tibble
             
-            # get the allele effects only for additive
             ds_data <- get_data(dataset)
             
             for (i in 1:nrow(lod_peaks)) {
-                t_score <- lod_peaks[i, ]
-                if((t_score$scan == 'additive') && (!gtools::invalid(t_score$marker.id))) {
-                    t_chr <- t_score$chr
-                    t_marker <- t_score$marker.id
-                    t_probs <- list()
+                peak <- lod_peaks[i, ]
+
+                if(gtools::invalid(peak$marker.id)) {
+                    mrk_id <- qtl2::find_marker(map, peak$chr, peak$pos)
+                    mrk <- markers %>% filter(marker.id == mrk_id)
+                    peak$marker.id <- mrk_id
+                    peak$pos <- mrk$pos
+                    lod_peaks[i, ] <- peak
+                }
+
+                # get the allele effects only for additive
+                if(peak$scan == 'additive') {
+                    temp_probs <- list()
+                    temp_probs[[peak$chr]] <- genoprobs[[peak$chr]][,,peak$marker.id, drop = FALSE]
                     
-                    t_probs[[t_chr]] <- genoprobs[[t_chr]][,,t_marker, drop = FALSE]
                     
-                    af <- scan1blup(genoprobs = t_probs,
+                    af <- scan1blup(genoprobs = temp_probs,
                                     pheno     = ds_data[, id, drop = FALSE],
-                                    kinship   = K[[t_chr]])
+                                    kinship   = K[[peak$chr]])
                     
                     output <- lod_peaks[i, ] %>% bind_cols(as_tibble(t(af[, LETTERS[1:8]])))
                 } else {
@@ -144,15 +151,13 @@ findPeaks <- function(fName, dataset, start, step, threshold = 6.0, peakdrop = 2
 # 6 == step size
 # 7 == number of cores
 
-if(FALSE) {
-    args <- commandArgs(trailingOnly = TRUE)
-    print(paste0('Loading: ', args[1]))
-    load(args[1])
-    debug_mode <- TRUE
-    print(paste0('Sourcing: ', args[2]))
-    source(args[2])
-    findPeaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]), nCores=strtoi(args[7]))
-    print('DONE')
-}
+args <- commandArgs(trailingOnly = TRUE)
+print(paste0('Loading: ', args[1]))
+load(args[1])
+debug_mode <- TRUE
+print(paste0('Sourcing: ', args[2]))
+source(args[2])
+findPeaks(args[3], args[4], strtoi(args[5]), strtoi(args[6]), nCores=strtoi(args[7]))
+print('DONE')
 
 #peaks <- find_peaks('deleteme3', 'dataset.DOheart.mrna',  1, 3, 5)
