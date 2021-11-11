@@ -38,45 +38,45 @@ library(gtools)
 # #############################################################################
 
 
-# set a variable called debugMode to TRUE for step 1 above.
+# set a variable called debug_mode to TRUE for step 1 above.
 
-if (exists('debug_mode')) {
-    debug_mode <- get('debug_mode')
+if (exists("debug_mode")) {
+    debug_mode <- get("debug_mode")
 } else {
     debug_mode <- FALSE
 }
 
 if (debug_mode) {
-    print('DEBUG MODE: Make sure the data is loaded and db_file is defined')
+    message("DEBUG MODE: Make sure the data is loaded and db_file is defined")
 } else {
-    print('Finding the data file to load...')
-    data_files <- list.files('/app/qtlapi/data', 
-                             '\\.RData$', 
+    message("Finding the data file to load...")
+    data_files <- list.files("/app/qtlapi/data", 
+                             "\\.RData$", 
                              ignore.case = TRUE, 
                              full.names = TRUE)
     
     if (length(data_files) == 0) {
-        stop('There needs to be an .RData file in /app/qtlapi/data')
+        stop("There needs to be an .RData file in /app/qtlapi/data")
     } else if (length(data_files) > 1) {
-        stop('There needs to be only 1 .RData file in /app/qtlapi/data')
+        stop("There needs to be only 1 .RData file in /app/qtlapi/data")
     }
     
-    print(sprintf('Loading the data file: %s', data_files))
+    message("Loading the data file:", data_files)
     
     load(data_files, .GlobalEnv)
     
-    db_file <- list.files('/app/qtlapi/data', 
-                          '\\.sqlite$', 
+    db_file <- list.files("/app/qtlapi/data", 
+                          "\\.sqlite$", 
                           ignore.case =TRUE, 
                           full.names = TRUE)
     
     if (length(db_file) == 0) {
-        stop('There needs to be an .sqlite file in /app/qtlapi/data')
+        stop("There needs to be an .sqlite file in /app/qtlapi/data")
     } else if (length(db_file) > 1) {
-        stop('There needs to be only 1 .sqlite file in /app/qtlapi/data')
+        stop("There needs to be only 1 .sqlite file in /app/qtlapi/data")
     }
     
-    print(sprintf('Using SNP db file: %s', db_file))
+    message("Using SNP db file:", db_file)
 }
 
 
@@ -89,28 +89,6 @@ if (debug_mode) {
 
 #' Opposite of %in%  
 `%not in%` <- function (x, table) match(x, table, nomatch = 0L) == 0L
-
-#' Convert to boolean/logical
-#' 
-#' Acceptable TRUE boolean values are TRUE, 1, "T", "TRUE", "YES", "Y", "1"
-#'
-#' @param value The value to check.
-#' 
-#' @return TRUE if it is a boolean value and it's value is one of the
-#'   acceptable matching inputs.
-#' 
-#' @noRd
-to_boolean <- function(value) {
-    if (is.logical(value)) {
-        return(value)
-    } else if (is.character(value)) {
-        return(toupper(value) %in% c('T', 'TRUE', 'YES', 'Y', '1'))
-    } else if (is.numeric(value)) {
-        return(value == 1)
-    }
-    
-    FALSE
-}
 
 
 #' Check value for validity and return it or a default
@@ -169,19 +147,18 @@ nvl_int <- function(value, default) {
 #' 
 #' @return The dataset element.
 #' 
-get_dataset <- function(id) {
-    if (exists(id)) {
-        return(get(id))
+get_dataset <- function(ds) {
+    if (exists(ds)) {
+        return(get(ds))
     } else {
-        expanded <- sprintf('dataset.%s', id) 
+        expanded <- sprintf("dataset.%s", ds) 
         if (exists(expanded)) {
             return(get(expanded))
         }
     }
     
-    stop(sprintf('dataset "%s" not found', id))
+    stop(sprintf("'%s' does not exist", ds))
 }
-
 
 #' Check dataset to see if the datatype value is "phenotype"
 #'
@@ -191,18 +168,20 @@ get_dataset <- function(id) {
 #' @return TRUE if the datatype is phenotype, FALSE otherwise.
 #' 
 is_phenotype <- function(dataset) {
-    if (typeof(dataset) == 'character') {
+    if (typeof(dataset) == "character") {
         dataset <- get_dataset(dataset)
     }
     
-    if (startsWith(tolower(dataset$datatype), 'pheno')) {
-        return(TRUE)
+    if (!gtools::invalid(dataset)) {
+        if (startsWith(tolower(dataset$datatype), "pheno")) {
+            return(TRUE)
+        }
     }
 
     FALSE
 }
 
-#' Synch up sample IDs between objects.
+#' Synchronize sample IDs between objects.
 #'
 #' If each object exists, we get the intersection of the sample IDs,
 #' sort them and subset each object.
@@ -216,19 +195,19 @@ is_phenotype <- function(dataset) {
 #' @param covar numeric matrix containing the mapping covariates. Sample IDs 
 #'     must be in rownames. Optional.
 #'
-#' @return list with three elements: pheno, probs, expr and covar. Sample IDs 
+#' @return list with four elements: pheno, probs, expr and covar. Sample IDs 
 #'     will all be in the same order.
 #' @export
-synch_samples = function(pheno, probs, expr, covar=NULL) {
-
+synch_samples = function(pheno, probs, expr, covar = NULL) {
     samples = intersect(rownames(pheno), rownames(probs))
     samples = intersect(samples, rownames(expr))
+    
     if(!is.null(covar)) {
         samples = intersect(samples, rownames(covar))
     }
 
     if(length(samples) == 0) {
-        stop("There are no samples in common. Please check the rownames on all objects.")
+        message("There are no samples in common")
     }
 
     samples = sort(samples)
@@ -240,7 +219,10 @@ synch_samples = function(pheno, probs, expr, covar=NULL) {
         covar = covar[samples, , drop = FALSE]
     }
 
-    list(pheno = pheno, probs = probs, expr = expr, covar = covar)
+    list(pheno = pheno, 
+         probs = probs, 
+         expr  = expr, 
+         covar = covar)
 }
 
 
@@ -259,13 +241,13 @@ get_data <- function(id, data = NULL) {
     ret <- NULL
     
     if (is.matrix(ds$data) && (!is.null(data))) {
-        stop(sprintf('specified data "%s" not found in "%s"', data, id))
+        stop(sprintf("Specified data '%s' not found in '%s'", data, id))
     }
     
     # rz, norm, raw, log, transformed
     if (!gtools::invalid(data)) {
         if (is.matrix(ds$data)) {
-            stop(sprintf('only 1 data element in "%s"', id))
+            stop(sprintf("Specified data '%s' not found in '%s'", data, id))
         }
         
         ret <- ds$data[[data]]
@@ -288,7 +270,7 @@ get_data <- function(id, data = NULL) {
     }
     
     if (gtools::invalid(ret)) {
-        stop(sprintf('unable to find data in dataset "%s"', id))
+        stop(sprintf("Unable to find data in '%s'", id))
     }
     
     ret
@@ -296,42 +278,41 @@ get_data <- function(id, data = NULL) {
 
 #' Get all "dataset.*" information
 #' 
-#' This will return a named list of all datasets and the ensmebl version.
+#' This will return a named list of all datasets
 #'
-#' @return A named list of all the dataset objects, along with the 
-#'   ensembl.version.
+#' @return A named list of all the dataset objects
 #' 
 get_dataset_info <- function() {
-    datasets <- grep('^dataset*', apropos('dataset\\.'), value = TRUE)
+    datasets <- grep("^dataset*", apropos("dataset\\."), value = TRUE)
     ret <- c()
     
-    for (d in datasets) {
-        ds <- get(d)
+    for (dataset_id in datasets) {
+        ds <- get(dataset_id)
         
         annotations <- list()
         
-        if (tolower(ds$datatype) == 'mrna') {
+        if (tolower(ds$datatype) == "mrna") {
             annotations <- list(ids = ds$annot.mrna$gene.id)
-        } else if(tolower(ds$datatype) == 'protein') {
+        } else if(tolower(ds$datatype) == "protein") {
             annotations <- 
                 list(ids = tibble(protein.id = ds$annot.protein$protein.id,
                                   gene.id    = ds$annot.protein$gene.id))
         } else if(is_phenotype(ds)) {
             annotations <- 
-                as_tibble(ds$annot.phenotype[which(ds$annot.phenotype$omit == FALSE), ])
+                as_tibble(ds$annot.phenotype[which(!ds$annot.phenotype$omit), ])
         }
         
-        temp <- list(id              = d, 
+        temp <- list(id              = dataset_id, 
                      annotations     = annotations, 
-                     display.name    = nvl(ds$display.name, d), 
-                     datatype        = ds$datatype, 
+                     display.name    = nvl(ds$display.name, dataset_id), 
+                     datatype        = ds$datatype,
+                     ensembl.version = nvl(ds$ensembl.version, ensembl.version),
                      covar.info      = ds$covar.info)
         
         ret <- c(ret, list(temp))
     }
     
-    list(datasets        = ret, 
-         ensembl.version = nvl(ensembl.version, NA))
+    list(datasets = ret)
 }
 
 #' Get all "dataset.*" statistics.
@@ -341,32 +322,33 @@ get_dataset_info <- function() {
 #' @return A named list of all the dataset objects.
 #' 
 get_dataset_stats <- function() {
-    datasets <- grep('^dataset*', apropos('dataset\\.'), value = TRUE)
+    datasets <- grep("^dataset*", apropos("dataset\\."), value = TRUE)
     ret <- c()
     
-    for (d in datasets) {
-        ds <- get(d)
+    for (dataset_id in datasets) {
+        ds <- get(dataset_id)
         
         num.annotations <- NA
         
-        if (tolower(ds$datatype) == 'mrna') {
+        if (tolower(ds$datatype) == "mrna") {
             num.annotations <- NROW(ds$annot.mrna)
-        } else if(tolower(ds$datatype) == 'protein') {
+        } else if(tolower(ds$datatype) == "protein") {
             num.annotations <- NROW(ds$annot.protein)
         } else if(is_phenotype(ds)) {
             num.annotations <- NROW(ds$annot.phenotype)
         }
         
-        temp <- list(id              = d, 
-                     display.name    = nvl(ds$display.name, d), 
+        temp <- list(id              = dataset_id, 
+                     display.name    = nvl(ds$display.name, dataset_id), 
                      datatype        = ds$datatype,
+                     ensembl.version = nvl(ds$ensembl.version, ensembl.version),
                      num.annotations = num.annotations,
                      num.samples     = NROW(ds$annot.samples))
         
         ret <- c(ret, list(temp))
     }
     
-    ret
+    list(datasets = ret)
 }
 
 
@@ -379,12 +361,14 @@ get_dataset_stats <- function() {
 #' 
 #' @return A tibble with the following columns: id, ranking
 #' 
-get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 1000) {
-    # get the dataset and the data
+get_rankings <- function(dataset, chrom = NULL, 
+                         min_value = 100, max_value = 1000) {
+    
+    # get the dataset
     ds <- get_dataset(dataset)
     
     if(is_phenotype(ds)) {
-        stop('phenotype dataset is not yet supported')
+        stop(sprintf("'%s' is a phenotype dataset and is not supported", ds))
     }
     
     # different than get_data()
@@ -405,11 +389,6 @@ get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 100
         }
     }
     
-    #data_mean <- colMeans(data, na.rm = TRUE)
-    #data_ranks <- data_mean - min(data_mean)
-    #data_ranks <- (data_ranks/max(data_ranks)) * max_value
-    #tmp <- data_ranks
-    
     data_mean <- colMeans(data, na.rm = TRUE)
 
     min_data_mean = min(data_mean)
@@ -418,7 +397,7 @@ get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 100
     tmp <- (data_mean - min_data_mean) / (max_data_mean - min_data_mean)
     tmp <- (max_value - min_value) * tmp + min_value
 
-    if (tolower(ds$datatype) == 'mrna') {
+    if (tolower(ds$datatype) == "mrna") {
         if (!is.null(chrom)) {
             # filter the data to just return the chromosome asked for
             gene_ids <- ds$annot.mrna[ds$annot.mrna$chr == chrom,]$gene.id
@@ -437,7 +416,8 @@ get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 100
     } else {
         if (!is.null(chrom)) {
             # filter the data to just return the chromosome asked for
-            protein_ids <- ds$annot.protein[ds$annot.protein$chr == chrom,]$protein.id
+            protein_ids <- 
+                ds$annot.protein[ds$annot.protein$chr == chrom,]$protein.id
             tmp <- tmp[protein_ids]
         }
         
@@ -454,6 +434,7 @@ get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 100
     }
 }
 
+
 #' Perform a LOD scan.
 #' 
 #' @param dataset The dataset identifier.
@@ -464,138 +445,27 @@ get_rankings <- function(dataset, chrom = NULL, min_value = 100, max_value = 100
 #' @param filter_peak_drop if set, qtl2::find_peaks is used
 #' @param filter_thresholdX if set, qtl2::find_peaks is used
 #' @param filter_peak_dropX if set, qtl2::find_peaks is used
+#' @param scan1_output if TRUE, original qtl2::scan1 data is included in return
 #' 
-#' @return A tibble with the following columns: id, chr, pos, lod.
+#' @return A list with the following elements:
+#'   lod_peaks - list of peaks
+#'   lod_scores - tibble with the following columns: id, chr, pos, lod
+#'   scan1 - qtl2::scan1 output
+#'   
 #' 
 get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0, 
-                         filter_threshold = NULL, filter_peak_drop = Inf,
-                         filter_thresholdX = NULL, filter_peakdropX = NULL) {
-    # get the dataset and the data
-    ds <- get_dataset(dataset)
-    data <- get_data(dataset)
-    
-    # check if id exists 
-    idx <- which(colnames(data) == id)
-    
-    if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
-    }
-    
-    # make sure num_cores is appropriate  
-    num_cores = nvl_int(cores, 0)
-    
-    if (is_phenotype(ds)) {
-        # get the annot.pheno row to get use.covar variable from the annotations
-        pheno <- ds$annot.pheno %>% filter(data.name == id)
-        
-        if (gtools::invalid(pheno)) {
-            stop(sprintf('id (data.name) "%s" not found in annot.phenotype', id))
-        }
-        
-        # convert samples to data.frame because QTL2 relies heavily
-        # on rownames and colnames, rownames currently are or will
-        # soon be deprecated in tibbles
-        samples <- as.data.frame(ds$annot.samples)
-        
-        # set the rownames so scan1 will work, finding a match to some
-        # variation of mOuSE.Id
-        rownames(samples) <- 
-            (samples %>% select(matches('^mouse\\.id$')))[[1]]
-        
-        # create a string (model formula) from the use.covar column
-        formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
-        
-        # [, -1, drop = FALSE] will drop the (Intercept) column
-        covar <- model.matrix(as.formula(formula_str), data = samples)
-        covar <- covar[, -1, drop = FALSE]
-    } else {
-        covar <- NULL
-        
-        if (!gtools::invalid(ds$covar.matrix)) {
-            covar <- ds$covar.matrix    
-        }
-    } 
-    
-    # set the interactive.covariate, to be used in scan1
-    # as scan1(intcovar=interactive_covariate)
-    interactive_covariate <- NULL
-    
-    if (!gtools::invalid(intcovar)) {
-        if (intcovar %not in% ds$covar.info$sample.column) {
-            stop(sprintf('intcovar "%s" not found in %s$covar.info', 
-                         intcovar, 
-                         dataset))
-        }
-        
-        # grabbing all the columns from covar (covar.matrix) that
-        # match, i.e., "batch" will match "batch2", "BATCH3", etc
-        interactive_covariate <-
-            covar[, which(grepl(intcovar, colnames(covar), ignore.case = T))]
-    }
-    
-    # perform the scan using QTL2, 
-    # - addcovar should always be ALL covars
-    # - intcovar should be just the interactive covariate column
-    temp <- scan1(genoprobs = genoprobs,
-                  kinship   = K,
-                  pheno     = data[, id, drop = FALSE], 
-                  addcovar  = covar, 
-                  intcovar  = interactive_covariate,
-                  cores     = num_cores,
-                  reml      = TRUE)
-    
-    # utilize qtl2::find_peaks if filter_threshold is set
-    if (!gtools::invalid(filter_threshold)) {
-        temp <- qtl2::find_peaks(temp, map, 
-                                 threshold = filter_threshold, 
-                                 peakdrop = filter_peak_drop,
-                                 thresholdX = filter_thresholdX,
-                                 peakdropX = filter_peakdropX)
-        
-        return(inner_join(temp,
-                          markers, 
-                          by = c("chr","pos")) %>%
-                   select(id = marker.id, chr, pos, lod) %>%
-                   mutate_at(c("lod"), as.numeric) %>% as_tibble)
-    }
-    
-    # construct a 2 dimensional array of data with id, chr, pos, lod as columns
-    # we perform a left join here to make sure that the number of elements match
-    # convert from type scan1 to numeric
-    inner_join(as_tibble(temp, rownames = 'marker.id'), 
-               markers, 
-               by = 'marker.id') %>% 
-        select(id = marker.id, chr, pos, lod = id) %>%
-        mutate_at(c("lod"), as.numeric)
-}
-
-
-#' Perform a LOD scan.
-#' 
-#' @param dataset The dataset identifier.
-#' @param id The identifier.
-#' @param covar The interactive covariate.
-#' @param cores number of cores to use (0=ALL).
-#' @param filter_threshold if set, qtl2::find_peaks is used
-#' @param filter_peak_drop if set, qtl2::find_peaks is used
-#' @param filter_thresholdX if set, qtl2::find_peaks is used
-#' @param filter_peak_dropX if set, qtl2::find_peaks is used
-#' 
-#' @return A tibble with the following columns: id, chr, pos, lod.
-#' 
-get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0, 
                          filter_threshold = 6.0, filter_peak_drop = Inf,
                          filter_thresholdX = NULL, filter_peakdropX = NULL,
                          scan1_output = FALSE) {
-    # get the dataset and the data
+    # get the dataset and data 
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
-    
+
     # check if id exists 
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
     
     # make sure num_cores is appropriate  
@@ -606,7 +476,7 @@ get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0,
         pheno <- ds$annot.pheno %>% filter(data.name == id)
         
         if (gtools::invalid(pheno)) {
-            stop(sprintf('id (data.name) "%s" not found in annot.phenotype', id))
+            stop(sprintf("Cannot find phenotype '%s' in '%s'", id, dataset))
         }
         
         # convert samples to data.frame because QTL2 relies heavily
@@ -617,10 +487,10 @@ get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0,
         # set the rownames so scan1 will work, finding a match to some
         # variation of mOuSE.Id
         rownames(samples) <- 
-            (samples %>% select(matches('^mouse\\.id$')))[[1]]
+            (samples %>% select(matches("^mouse\\.id$")))[[1]]
 
         # create a string (model formula) from the use.covar column
-        formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
+        formula_str <- paste0("~", gsub(":", "+", pheno$use.covar))
         
         # [, -1, drop = FALSE] will drop the (Intercept) column
         covar <- model.matrix(as.formula(formula_str), data = samples)
@@ -639,7 +509,7 @@ get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0,
     
     if (!gtools::invalid(intcovar)) {
         if (intcovar %not in% ds$covar.info$sample.column) {
-            stop(sprintf('intcovar "%s" not found in %s$covar.info', 
+            stop(sprintf("intcovar '%s' not found in %s$covar.info", 
                          intcovar, 
                          dataset))
         }
@@ -671,28 +541,24 @@ get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0,
     # construct a 2 dimensional array of data with id, chr, pos, lod as columns
     # we perform a left join here to make sure that the number of elements match
     # convert from type scan1 to numeric
-    lod_scores_mod <- inner_join(as_tibble(lod_scores, rownames = 'marker.id'), 
+    lod_scores_mod <- inner_join(as_tibble(lod_scores, rownames = "marker.id"), 
                                  markers, 
-                                 by = 'marker.id') %>% 
+                                 by = "marker.id") %>% 
         select(id = marker.id, chr, pos, lod = id) %>%
         mutate_at(c("lod"), as.numeric)
 
     lod_peaks <- inner_join(lod_peaks,
                             markers, 
-                            by = c("chr","pos")) %>%
+                            by = c("chr", "pos")) %>%
         select(id = marker.id, chr, pos, lod) %>%
         mutate_at(c("lod"), as.numeric) %>% 
         as_tibble
     
 
     ret <- list(lod_peaks = lod_peaks, lod_scores = lod_scores_mod)
-    
-    if(scan1_output) {
-        ret$scan1 <- lod_scores
-    }
-    
-    return(ret)
-    
+    ret$scan1 <- if (scan1_output) lod_scores else NULL
+
+    ret
 }
 
 
@@ -708,7 +574,7 @@ get_lod_scan_new <- function(dataset, id, intcovar = NULL, cores = 0,
 #'   tibble with the following columns: id, chr, pos, lod.
 #' 
 get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
-    # get the dataset and the data
+    # get the dataset and data
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
     
@@ -716,14 +582,14 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
     
     # make sure the chromosome data exists
     if (gtools::invalid(K[[chrom]])) {
-        stop(sprintf('chrom "%s" not found', chrom))
+        stop(sprintf("Cannot find chromosome '%s' in Kinship matrix", id))
     }
-    
+
     # extract the markers just for the chromosome
     markers_chrom <- markers %>% filter(chr == chrom)
     
@@ -731,7 +597,8 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     num_cores <- nvl_int(cores, 0)
     
     if (intcovar %not in% ds$covar.info$sample.column) {
-        stop(sprintf('covar "%s" not found in %s$covar.info', intcovar, dataset))
+        stop(sprintf("covar '%s' not found in %s$covar.info", 
+                     intcovar, dataset))
     }
 
     # get all the unique values for the interactive.covar and sort them 
@@ -748,7 +615,7 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     
     # set the rownames so scan1 will work, finding a match to some
     # variation of mOuSE.Id
-    rownames(samples) <- (samples %>% select(matches('^mouse\\.id$')))[[1]]
+    rownames(samples) <- (samples %>% select(matches("^mouse\\.id$")))[[1]]
 
     # ret will be a named list of tibbles with LOD scores
     # each name is a unique sample value
@@ -759,11 +626,11 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
         # samples.names will contain ONLY the samples that match x
         # take all samples
         # filter rows by value, i.e. sex = "F"
-        # select just need the mouse.id column
+        # select just the mouse.id column
         sample_names <- 
             ds$annot.samples %>%                        
             filter(UQ(as.name(intcovar)) == u) %>%  
-            select(matches('^mouse\\.id$'))                  
+            select(matches("^mouse\\.id$"))
         
         sample_names <- c(sample_names[[1]])
 
@@ -773,11 +640,11 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
             pheno <- ds$annot.pheno %>% filter(data.name == id)
             
             if (gtools::invalid(pheno)) {
-                stop(sprintf('id "%s" not found in annot.phenotype', id))
+                stop(sprintf("Cannot find phenotype '%s' in '%s'", id, dataset))
             }
             
             # create a string (model formula) from the use.covar column
-            formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
+            formula_str <- paste0("~", gsub(":", "+", pheno$use.covar))
             
             # construct the covar matrix
             covar <- model.matrix.lm(as.formula(formula_str), 
@@ -805,9 +672,9 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
         
         # construct a 2 dimensional array of data with id, chr, pos, lod
         # convert from type scan1 to numeric
-        ret[[toString(u)]] <- inner_join(as_tibble(temp, rownames = 'marker.id'), 
+        ret[[toString(u)]] <- inner_join(as_tibble(temp, rownames = "marker.id"), 
                                          markers, 
-                                         by = 'marker.id') %>% 
+                                         by = "marker.id") %>% 
                                   select(id = marker.id, chr, pos, lod = id) %>%
                                   mutate_at(c("lod"), as.numeric)
     }
@@ -839,12 +706,12 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
     
     # make sure the chromosome data exists
     if (gtools::invalid(K[[chrom]])) {
-        stop(sprintf('chrom "%s" not found', chrom))
+        stop(sprintf("Cannot find chromosome '%s' in Kinship matrix", id))
     }
     
     # make sure ncores is appropriate  
@@ -856,7 +723,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
         pheno <- ds$annot.pheno %>% filter(data.name == id)
         
         if (gtools::invalid(pheno)) {
-            stop(sprintf('id "%s" not found in annot.phenotype', id))
+            stop(sprintf("Cannot find phenotype '%s' in '%s'", id, dataset))
         }
         
         # convert samples to data.frame because QTL2 relies heavily
@@ -866,10 +733,10 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
         
         # set the rownames so scan1 will work, finding a match to some
         # variation of mOuSE.Id
-        rownames(samples) <- (samples %>% select(matches('^mouse\\.id$')))[[1]]
+        rownames(samples) <- (samples %>% select(matches("^mouse\\.id$")))[[1]]
 
         # create a string (model formula) from the use.covar column
-        formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
+        formula_str <- paste0("~", gsub(":", "+", pheno$use.covar))
         
         # construct the covar matrix
         covar <- model.matrix.lm(as.formula(formula_str), 
@@ -889,7 +756,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
     ret <- list()
     
     if (gtools::invalid(intcovar)) {
-        if (to_boolean(blup)) {
+        if (blup) {
             temp <- scan1blup(genoprobs = genoprobs[, chrom],
                               pheno     = data[, idx, drop = FALSE],
                               kinship   = K[[chrom]],
@@ -902,23 +769,24 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                               addcovar  = covar)
         }
         
-        if (to_boolean(center)) {
+        if (center) {
             temp[, LETTERS[1:8]] <- 
                 temp[, LETTERS[1:8]] - rowMeans(temp[, LETTERS[1:8]], 
                                                 na.rm = TRUE)
         }
         
-        ret[['additive']] <- 
-            inner_join(as_tibble(temp, rownames = 'marker.id'), 
+        ret[["additive"]] <- 
+            inner_join(as_tibble(temp, rownames = "marker.id"), 
                        markers, 
-                       by = 'marker.id') %>% 
+                       by = "marker.id") %>% 
             select(id = marker.id, chr, pos, LETTERS[1:8]) %>%
             mutate_at(vars(-c("id", "chr", "pos")), as.numeric)
     } else {
         if (intcovar %not in% ds$covar.info$sample.column) {
-            stop(sprintf('covar "%s" not found in %s$covar.info', intcovar, dataset))
+            stop(sprintf("covar '%s' not found in %s$covar.info", 
+                         intcovar, dataset))
         }
-        
+
         # get all the unique values for the intcovar and sort them 
         if (is.factor(ds$annot.samples[[intcovar]])) {
             covar.unique <- 
@@ -936,7 +804,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
         # set the rownames so scan1 will work, finding a match to some
         # variation of mOuSE.Id
         rownames(samples) <- 
-            (samples %>% select(matches('^mouse\\.id$')))[[1]]
+            (samples %>% select(matches("^mouse\\.id$")))[[1]]
         
         # loop through the unique values for the interactive.covar
         for (u in covar.unique) {
@@ -947,7 +815,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
             sample_names <- 
                 samples %>%                                   
                 filter(UQ(as.name(intcovar)) == u) %>%  
-                select(matches('^mouse\\.id$'))                  
+                select(matches("^mouse\\.id$"))
             
             sample_names <- c(sample_names[[1]])
             
@@ -977,9 +845,9 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
             }
             
             ret[[toString(u)]] <-
-                inner_join(as_tibble(temp, rownames = 'marker.id'), 
+                inner_join(as_tibble(temp, rownames = "marker.id"), 
                            markers, 
-                           by = 'marker.id') %>% 
+                           by = "marker.id") %>% 
                 select(id = marker.id, chr, pos, LETTERS[1:8]) %>%
                 mutate_at(vars(-c("id", "chr", "pos")), as.numeric)
         }
@@ -1005,7 +873,7 @@ get_expression <- function(dataset, id) {
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
     
     if (gtools::invalid(ds$covar.info)) {
@@ -1025,14 +893,14 @@ get_expression <- function(dataset, id) {
     # make sure 'mouse.id' is lowercase when passed back and only pass back the
     # columns we need
     samples <- ds$annot.samples %>% 
-               rename(mouse.id = matches('^mouse\\.id$')) %>%
-               select(c('mouse.id', names(datatypes)))
+               rename(mouse.id = matches("^mouse\\.id$")) %>%
+               select(c("mouse.id", names(datatypes)))
     
     # bind the data
     output <- samples %>% 
         inner_join(tibble(mouse.id = rownames(data), 
                           expression = data[,idx]), 
-                   by = c('mouse.id' = 'mouse.id')) 
+                   by = c("mouse.id" = "mouse.id")) 
 
     list(data = output, 
          datatypes = datatypes)
@@ -1057,8 +925,8 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
     # get the dataset and data
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
-    
-    # get the dataset we are mediating against
+
+    # get the dataset we are mediating against and the data
     ds_mediate <- get_dataset(nvl(dataset_mediate, dataset))
     data_mediate <- get_data(nvl(dataset_mediate, dataset))
 
@@ -1066,39 +934,41 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
     
-    # get the marker index 
+    # get the marker index and check it
     mrkx <- which(markers$marker.id == marker_id)
     
     if (gtools::invalid(mrkx)) {
-        stop(sprintf('marker.id "%s" not found', marker_id))
+        stop(sprintf("Cannot find marker '%s' in markers", marker_id))
     }
 
     # get the annotations
-    if (tolower(ds_mediate$datatype) == 'mrna') {
+    if (tolower(ds_mediate$datatype) == "mrna") {
         # grab the annotations, create middle_point, and select what is needed
         annot <-
             inner_join(enframe(colnames(data_mediate), name=NULL),
                        ds_mediate$annot.mrna,
-                       by = c('value' = 'gene.id')) %>%
+                       by = c("value" = "gene.id")) %>%
             mutate(middle_point = (start + end) / 2) %>%
             select(gene.id = value, symbol, chr, middle_point)
         
-    } else if (tolower(ds_mediate$datatype) == 'protein') {
+    } else if (tolower(ds_mediate$datatype) == "protein") {
         # grab the annotations, create middle_point, and select what is needed
         annot <-
             inner_join(enframe(colnames(data_mediate), name=NULL),
                        ds_mediate$annot.protein,
-                       by = c('value' = 'protein.id')) %>%
+                       by = c("value" = "protein.id")) %>%
             mutate(middle_point = (start + end) / 2) %>%
             select(protein.id = value, gene.id, symbol, chr, middle_point)
 
     } else if (is_phenotype(ds_mediate)) {
-        stop('invalid datatype to mediate against')
+        stop(sprintf("'%s' is a phenotype dataset and is not supported", 
+                     ds_mediate))
     } else {
-        stop('invalid datatype')
+        stop(sprintf("'%s' has an invalid datatype '%s'", 
+                     ds_mediate, ds_mediate$datatype))
     }
     
     chrom = as.character(markers[mrkx, 'chr'])
@@ -1110,11 +980,14 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
         covar <- ds_mediate$covar.matrix
     }
         
+    filtered_genoprobs <- 
+        genoprobs[[chrom]][rownames(data_mediate), , marker_id]
+    
     mediation.scan(target     = data[, idx, drop = FALSE],
                    mediator   = data_mediate,
                    annotation = annot,
                    covar      = covar,
-                   qtl.geno   = genoprobs[[chrom]][rownames(data_mediate), , marker_id],
+                   qtl.geno   = filtered_genoprobs,
                    verbose    = FALSE)
 }
 
@@ -1143,18 +1016,18 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
 
     # make sure location is valid    
     if (nvl_int(location, -1) == -1) {
-        stop(sprintf('location "%s" is invalid', location))
+        stop(paste0("Specified location is invalid: ", location))
     }
     
     position <- nvl_int(location, -1) / 1000000.0
     
     if (nvl_int(window_size, -1) == -1) {
-        stop(sprintf('window_size is invalid: %d', window_size))
+        stop(paste0("Specified window_size is invalid: ", window_size))
     }
     
     window_size <- nvl_int(window_size, -1)
@@ -1173,7 +1046,7 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
     while (!have_snps) {
         db_snps <- src_sqlite(db_file, create = FALSE)
         window_snps <- 
-            tbl(db_snps, 'snps') %>%
+            tbl(db_snps, "snps") %>%
             filter(chr     == chrom, 
                    pos_Mbp >= window_range_start,
                    pos_Mbp <= window_range_end) %>%
@@ -1190,13 +1063,13 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
             tries <- tries + 1
             
             if (tries > 10) {
-                stop(sprintf('Cannot find snps in region: %s:%f-%f', 
+                stop(sprintf("Cannot find any snps in region: %s:%f-%f", 
                              chrom, window.range_start, window.range_end))
             }
         }
     }
     
-    colnames(window_snps)[c(1,3)] = c('snp', 'pos')
+    colnames(window_snps)[c(1,3)] = c("snp", "pos")
     window_snps = index_snps(map = map, window_snps)
     
     # set covariates
@@ -1205,7 +1078,7 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
         pheno <- ds$annot.pheno %>% filter(data.name == id)
         
         if (gtools::invalid(pheno)) {
-            stop(sprintf('id "%s" not found in annot.phenotype', id))
+            stop(sprintf("Cannot find phenotype '%s' in '%s'", id, dataset))
         }
         
         # convert samples to data.frame because QTL2 relies heavily
@@ -1215,10 +1088,10 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
         
         # set the rownames so scan1 will work, finding a match to some
         # variation of mOuSE.Id
-        rownames(samples) <- (samples %>% select(matches('^mouse\\.id$')))[[1]]
+        rownames(samples) <- (samples %>% select(matches("^mouse\\.id$")))[[1]]
         
         # create a string (model formula) from the use.covar column
-        formula_str <- paste0('~', gsub(':', '+', pheno$use.covar))
+        formula_str <- paste0("~", gsub(":", "+", pheno$use.covar))
         
         # construct the covar matrix
         covar <- model.matrix.lm(as.formula(formula_str), 
@@ -1259,7 +1132,8 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
 
     if (!gtools::invalid(intcovar)) {
         if (intcovar %not in% ds$covar.info$sample.column) {
-            stop(sprintf('covar "%s" not found in %s$covar.info', intcovar, dataset))
+            stop(sprintf("covar '%s' not found in %s$covar.info", 
+                         intcovar, dataset))
         }
         
         # grabbing all the columns from covar (covar.matrix) that
@@ -1301,7 +1175,7 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
 get_lod_peaks_helper <- function(dataset, intcovar = NULL) {
     # get the dataset
     ds <- get_dataset(dataset)
-    
+
     peaks <- NULL
     
     if (gtools::invalid(intcovar)) {
@@ -1312,57 +1186,59 @@ get_lod_peaks_helper <- function(dataset, intcovar = NULL) {
             n <- ds$covar.info[ds$covar.info$sample.column == intcovar, ]
             peaks <- ds$lod.peaks[[n$lod.peaks]]  
         } else {
-            stop(sprintf('covar "%s" not found in %s$covar.info', intcovar, dataset))
+            stop(sprintf("covar '%s' not found in %s$covar.info", 
+                         intcovar, dataset))
         }
     }
     
     if (gtools::invalid(peaks)) {
-        stop(sprintf('no peaks found for covar "%s" in %s', intcovar, dataset))
+        stop(sprintf("No peaks found for covar '%s' in %s$lod.peaks", 
+                     intcovar, dataset))
     }
     
-    if (tolower(ds$datatype) == 'mrna') {
+    if (tolower(ds$datatype) == "mrna") {
         ret <- ds$annot.mrna %>%
-            inner_join(peaks, by = 'gene.id') %>% 
+            inner_join(peaks, by = "gene.id") %>% 
             select(gene.id, symbol, gene.chr = chr, start, end, marker.id, lod) %>%
             mutate(gene.pos = (start + end) / 2.0) %>%
-            inner_join(markers, by = 'marker.id') %>%
+            inner_join(markers, by = "marker.id") %>%
             select(marker.id, chr, pos, gene.id, symbol, gene.chr, gene.pos, lod) %>%
             arrange(chr, pos)
         
         # now add A-H for additive if they exist
         if (all(LETTERS[1:8] %in% colnames(peaks))) {
             ret <- ret %>%
-                inner_join(peaks, by = c('gene.id', 'marker.id', 'lod'))
+                inner_join(peaks, by = c("gene.id", "marker.id", "lod"))
         }
-    } else if (tolower(ds$datatype) == 'protein') {
+    } else if (tolower(ds$datatype) == "protein") {
         ret <-ds$annot.protein %>%
-            inner_join(peaks, by = 'protein.id') %>% 
+            inner_join(peaks, by = "protein.id") %>% 
             select(protein.id, gene.id, symbol, gene.chr = chr, start, end, marker.id, lod) %>%
             mutate(gene.pos = (start + end) / 2.0) %>%
-            inner_join(markers, by = 'marker.id') %>%
+            inner_join(markers, by = "marker.id") %>%
             select(marker.id, chr, pos, protein.id, gene.id, symbol, gene.chr, gene.pos, lod) %>%
             arrange(chr, pos)
         
         # now add A-H for additive if they exist
         if (all(LETTERS[1:8] %in% colnames(peaks))) {
             ret <- ret %>%
-                inner_join(peaks, by = c('protein.id', 'marker.id', 'lod'))
+                inner_join(peaks, by = c("protein.id", "marker.id", "lod"))
         }
     } else if(is_phenotype(ds)) {
         ret <- ds$annot.phenotype %>%
-            inner_join(peaks, by = 'data.name') %>% 
+            inner_join(peaks, by = "data.name") %>% 
             select(data.name, short.name, description, marker.id, lod) %>%
-            inner_join(markers, by = 'marker.id') %>%
+            inner_join(markers, by = "marker.id") %>%
             select(marker.id, chr, pos, data.name, short.name, description, lod) %>%
             arrange(chr, pos)
         
         # now add A-H for additive if they exist
         if (all(LETTERS[1:8] %in% colnames(peaks))) {
             ret <- ret %>%
-                inner_join(peaks, by = c('data.name', 'marker.id', 'lod'))
+                inner_join(peaks, by = c("data.name", "marker.id", "lod"))
         }
     } else {
-        stop('invalid datatype')
+        stop(sprintf("'%s' has an invalid datatype '%s'", ds, ds$datatype))
     }
     
     ret
@@ -1381,6 +1257,10 @@ get_lod_peaks_helper <- function(dataset, intcovar = NULL) {
 get_lod_peaks <- function(dataset) {
     # get the dataset
     ds = get_dataset(dataset)
+    
+    if (gtools::invalid(ds)) {
+        return(NULL)
+    }
     
     # get the additive LOD peaks
     peaks <- list(additive = get_lod_peaks_helper(dataset))
@@ -1410,23 +1290,23 @@ get_lod_peaks <- function(dataset) {
 #' 
 #' @return residual matrix
 #' 
-calculate_residual_matrix <- function(variable_matrix, 
-                                      adjust_matrix, 
-                                      variables_interest, 
-                                      variables_compare,
-                                      use_qr = TRUE,
-                                      impute = TRUE) {
+calc_residual_matrix <- function(variable_matrix, 
+                                 adjust_matrix, 
+                                 variables_interest, 
+                                 variables_compare,
+                                 use_qr = TRUE,
+                                 impute = TRUE) {
     # make sure we have the same samples
     samples <- intersect(rownames(variable_matrix), rownames(adjust_matrix))
 
     # combine the data    
-    data <- 
-        as.data.frame(cbind(variable_matrix[samples,], adjust_matrix[samples,]))
+    data <- as.data.frame(cbind(variable_matrix[samples, ], 
+                                adjust_matrix[samples, ]))
     
     if(use_qr) {
         # Fast, but can't handle NAs in y??
         formula_str <- 
-            paste('~ + 1 +', paste(variables_compare, collapse = ' + '))
+            paste("~ + 1 +", paste(variables_compare, collapse = " + "))
         
         X_0 <- model.matrix.lm(as.formula(formula_str), 
                                data = data,
@@ -1459,8 +1339,9 @@ calculate_residual_matrix <- function(variable_matrix,
     else{
         ## Way too slow, use QR trick
         residual_matrix <- sapply(seq(variables_interest), function(i) {
-            formula_str <- 
-                paste(variables_interest[i], '~', paste(variables_compare, collapse = ' + '))
+            formula_str <- paste(variables_interest[i], 
+                                 "~", 
+                                 paste(variables_compare, collapse = " + "))
             fit <- lm(formula(formula_str), data = data)
             return(fit$residuals[samples])
         }, simplify = TRUE)
@@ -1490,24 +1371,29 @@ get_correlation <- function(dataset, id,
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
     
-    # get the dataset to correlate to
+    # get the dataset we are correlating against and the data
     ds_correlate = get_dataset(nvl(dataset_correlate, dataset))
     data_correlate <- get_data(nvl(dataset_correlate, dataset))
-    
+
     # check if id exists 
     idx <- which(colnames(data) == id)
     
     if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
     }
 
     # make sure we have the same samples
     samples <- intersect(rownames(data), rownames(data_correlate))
+    
+    if (length(samples) == 0) {
+        stop("No matching samples for correlation")
+    }
+
     data <- data[samples, ]
     data_correlate <- data_correlate[samples, ]    
 
     if (gtools::invalid(intcovar)) {
-        pcor <- cor(data[, idx], data_correlate, use = 'pair')
+        pcor <- cor(data[, idx], data_correlate, use = "pair")
     } else {
         interactive_covariate <- 
             colnames(ds$covar.matrix)[grepl(intcovar, 
@@ -1515,45 +1401,49 @@ get_correlation <- function(dataset, id,
                                             ignore.case = T)]
         
         id_residual_matrix <- 
-            calculate_residual_matrix(variable_matrix    = data,
-                                      adjust_matrix      = ds$covar.matrix, 
-                                      variables_interest = c(id),
-                                      variables_compare  = interactive_covariate,
-                                      use_qr             = use_qr)
+            calc_residual_matrix(variable_matrix    = data,
+                                 adjust_matrix      = ds$covar.matrix, 
+                                 variables_interest = c(id),
+                                 variables_compare  = interactive_covariate,
+                                 use_qr             = use_qr)
             
         residual_matrix <- 
-            calculate_residual_matrix(variable_matrix    = data_correlate,
-                                      adjust_matrix      = ds$covar.matrix, 
-                                      variables_interest = colnames(data_correlate),
-                                      variables_compare  = interactive_covariate,
-                                      use_qr             = use_qr)
+            calc_residual_matrix(variable_matrix    = data_correlate,
+                                 adjust_matrix      = ds$covar.matrix, 
+                                 variables_interest = colnames(data_correlate),
+                                 variables_compare  = interactive_covariate,
+                                 use_qr             = use_qr)
         
         resid_samples <- intersect(rownames(id_residual_matrix), 
                                    rownames(residual_matrix))
         
         pcor <- cor(id_residual_matrix[resid_samples, ], 
                     residual_matrix[resid_samples, ], 
-                    use = 'pair')
+                    use = "pair")
     }
 
     # reorder
     pcor <- pcor[1, order(abs(pcor), decreasing = TRUE)]
     
-    if (tolower(ds_correlate$datatype) == 'mrna') {
+    if (tolower(ds_correlate$datatype) == "mrna") {
+        matches <- match(names(pcor), ds_correlate$annot.mrna$gene.id)
+
         return (tibble(cor    = pcor, 
                        id     = names(pcor), 
-                       symbol = ds_correlate$annot.mrna$symbol[match(names(pcor), ds_correlate$annot.mrna$gene.id)],
-                       chr    = ds_correlate$annot.mrna$chr[match(names(pcor), ds_correlate$annot.mrna$gene.id)],
-                       start  = ds_correlate$annot.mrna$start[match(names(pcor), ds_correlate$annot.mrna$gene.id)],
-                       end    = ds_correlate$annot.mrna$end[match(names(pcor), ds_correlate$annot.mrna$gene.id)]))
-    } else if (tolower(ds_correlate$datatype) == 'protein') {
+                       symbol = ds_correlate$annot.mrna$symbol[matches],
+                       chr    = ds_correlate$annot.mrna$chr[matches],
+                       start  = ds_correlate$annot.mrna$start[matches],
+                       end    = ds_correlate$annot.mrna$end[matches]))
+    } else if (tolower(ds_correlate$datatype) == "protein") {
+        matches <- match(names(pcor), ds_correlate$annot.protein$protein.id)
+        
         return (tibble(cor     = pcor,
                        id      = names(pcor),
-                       gene_id = ds_correlate$annot.protein$gene.id[match(names(pcor), ds_correlate$annot.protein$protein.id)],
-                       symbol  = ds_correlate$annot.protein$symbol[match(names(pcor), ds_correlate$annot.protein$protein.id)],
-                       chr     = ds_correlate$annot.protein$chr[match(names(pcor), ds_correlate$annot.protein$protein.id)],
-                       start   = ds_correlate$annot.protein$start[match(names(pcor), ds_correlate$annot.protein$protein.id)],
-                       end     = ds_correlate$annot.protein$end[match(names(pcor), ds_correlate$annot.protein$protein.id)]))
+                       gene_id = ds_correlate$annot.protein$gene.id[matches],
+                       symbol  = ds_correlate$annot.protein$symbol[matches],
+                       chr     = ds_correlate$annot.protein$chr[matches],
+                       start   = ds_correlate$annot.protein$start[matches],
+                       end     = ds_correlate$annot.protein$end[matches]))
     } else if (is_phenotype(ds_correlate)) {
         return (tibble(cor    = pcor, 
                        id     = names(pcor)))
@@ -1561,11 +1451,11 @@ get_correlation <- function(dataset, id,
 }
 
 
-#' Get the correlation.
+#' Get the correlation data for plotting.
 #' 
 #' @param dataset the dataset identifier
 #' @param id the identifier
-#' @param dataset.correlate the dataset to correlate to
+#' @param dataset_correlate the dataset to correlate to
 #' @param id.correlate the identifier from the correlate dataset
 #' @param intcovar The interactive covariate, sample.column in covar.info.
 #' 
@@ -1578,28 +1468,29 @@ get_correlation_plot_data <- function(dataset, id,
     ds <- get_dataset(dataset)
     data <- get_data(dataset)
     
-    # get the dataset to correlate to
-    dataset_correlate <- nvl(dataset_correlate, dataset)
-    ds_correlate = get_dataset(dataset_correlate)
-    data_correlate <- get_data(dataset_correlate)
+    # get the correlation dataset and data
+    ds_correlate <- get_dataset(nvl(dataset_correlate, dataset))
+    data_correlate <- get_data(nvl(dataset_correlate, dataset))
 
     # make sure we have the same samples
     samples <- intersect(rownames(data), rownames(data_correlate))
+    
+    if (length(samples) == 0) {
+        stop("No matching samples to correlate")
+    }
+
     data <- data[samples, ]
     data_correlate <- data_correlate[samples, ]    
     
-    # check if id exists 
+    # check if id exists and get the index
     idx <- which(colnames(data) == id)
-    
-    if (gtools::invalid(idx)) {
-        stop(sprintf('id "%s" not found', id))
-    }
-    
-    # get the index
     idx_correlate <- which(colnames(data_correlate) == id_correlate)
     
-    if (gtools::invalid(idx_correlate)) {
-        stop(sprintf('id "%s" not found: ', id_correlate))
+    if (gtools::invalid(idx)) {
+        stop(sprintf("Cannot find data for '%s' in '%s'", id, dataset))
+    } else if (gtools::invalid(idx_correlate)) {
+        stop(sprintf("Cannot find data for '%s' in '%s'", 
+                     id_correlate, dataset_correlate))
     }
     
     if (!gtools::invalid(intcovar)) {
@@ -1609,18 +1500,18 @@ get_correlation_plot_data <- function(dataset, id,
                                             ignore.case = T)]
             
         data <- 
-            calculate_residual_matrix(variable_matrix    = data,
-                                      adjust_matrix      = ds$covar.matrix, 
-                                      variables_interest = c(id),
-                                      variables_compare  = interactive_covariate,
-                                      use_qr             = TRUE)
+            calc_residual_matrix(variable_matrix    = data,
+                                 adjust_matrix      = ds$covar.matrix, 
+                                 variables_interest = c(id),
+                                 variables_compare  = interactive_covariate,
+                                 use_qr             = TRUE)
         
         data_correlate <- 
-            calculate_residual_matrix(variable_matrix    = data_correlate,
-                                      adjust_matrix      = ds$covar.matrix, 
-                                      variables_interest = colnames(data_correlate),
-                                      variables_compare  = interactive_covariate,
-                                      use_qr             = TRUE)
+            calc_residual_matrix(variable_matrix    = data_correlate,
+                                 adjust_matrix      = ds$covar.matrix, 
+                                 variables_interest = colnames(data_correlate),
+                                 variables_compare  = interactive_covariate,
+                                 use_qr             = TRUE)
         
         x <- data[, 1]
         y <- data_correlate[, idx_correlate]
@@ -1629,11 +1520,12 @@ get_correlation_plot_data <- function(dataset, id,
         y <- data_correlate[, idx_correlate]
     }
         
-    id_column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
+    # get the intersecting samples and indices
+    id_column <- match("mouse.id", tolower(colnames(ds$annot.samples)))
     samples <- intersect(rownames(data), rownames(data_correlate))
     samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
     
-    # get the covar factors data
+    # get the covar factors and their data levels
     sample_info <- list()
     dt <- list()
     for (s in ds$covar.info$sample.column) {
@@ -1649,7 +1541,7 @@ get_correlation_plot_data <- function(dataset, id,
         }
     }
     
-    ret_data <- 
+    correlation_plot_data <- 
         as_tibble(data.frame(mouse.id         = rownames(data), 
                              x                = x, 
                              y                = y,
@@ -1658,10 +1550,10 @@ get_correlation_plot_data <- function(dataset, id,
 
     list(dataset           = dataset,
          id                = id,
-         dataset.correlate = dataset_correlate,
+         dataset.correlate = nvl(dataset_correlate, dataset),
          id.correlate      = id_correlate,
          datatypes         = dt,
-         data              = ret_data)
+         data              = correlation_plot_data)
 }
 
 
