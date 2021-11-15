@@ -300,6 +300,46 @@ get_data <- function(dataset, data_name = NULL) {
     ret
 }
 
+#' Get the sample id field.
+#'
+#' @param dataset The dataset id as a string.
+#'
+#' @return The name of the sample id field.
+#'
+get_sample_id_field <- function(dataset) {
+    ds <- get_dataset(dataset)
+    
+    if (is_phenotype(ds)) {
+        # find the id field of the samples
+        id_field <- ds$annot.pheno %>% filter(is.id == TRUE)
+        
+        if (NROW(id_field) != 1) {
+            stop(sprintf(
+                "is.id == TRUE more than once in '%s'$annot.phenotype",
+                ds
+            ))
+        }
+        
+        id_field <- id_field$data.name
+    } else {
+        regex_str <- "^mouse\\.?id$|^sample\\.id$"
+        
+        # the sample identifier
+        id_field <- colnames(
+            ds$annot.samples %>% select(matches(regex_str))
+        )
+        
+        if (length(id_field) != 1) {
+            stop("Unable to find a sample id field in annot.samples")
+        }
+        
+        id_field <- id_field[[1]]
+    }
+    
+    id_field
+}
+    
+
 
 #' Use the existing covar.matrix or create it.
 #'
@@ -331,15 +371,17 @@ get_covar_matrix <- function(dataset, id = NULL) {
             formula_str <- paste0("~", formula_str)
         }
 
+        # get the sample id field
+        sample_id_field <- get_sample_id_field(dataset)
+        
         # convert samples to data.frame because QTL2 relies heavily
         # on rownames and colnames, rownames currently are or will
         # soon be deprecated in tibbles
         samples <- as.data.frame(ds$annot.samples)
 
-        # set the rownames so scan1 will work, finding a match to some
-        # variation of mOuSE.Id
+        # set the rownames so scan1 will work
         rownames(samples) <-
-            (samples %>% select(matches("^mouse\\.id$")))[[1]]
+            (samples %>% select(matches(sample_id_field)))[[1]]
 
         # [, -1, drop = FALSE] will drop the (Intercept) column
         covar <- model.matrix.lm(
@@ -734,9 +776,11 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     # soon be deprecated in tibbles
     samples <- as.data.frame(ds$annot.samples)
 
-    # set the rownames so scan1 will work, finding a match to some
-    # variation of mOuSE.Id
-    rownames(samples) <- (samples %>% select(matches("^mouse\\.id$")))[[1]]
+    # get the sample id field
+    sample_id_field <- get_sample_id_field(dataset)
+
+    # set the rownames so scan1 will work
+    rownames(samples) <- (samples %>% select(matches(sample_id_field)))[[1]]
 
     # ret will be a named list of tibbles with LOD scores
     # each name is a unique sample value
@@ -747,11 +791,11 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
         # samples.names will contain ONLY the samples that match x
         # take all samples
         # filter rows by value, i.e. sex = "F"
-        # select just the mouse.id column
+        # select just the sample id field  column
         sample_names <-
             ds$annot.samples %>%
             filter(UQ(as.name(intcovar)) == u) %>%
-            select(matches("^mouse\\.id$"))
+            select(matches(sample_id_field))
 
         sample_names <- c(sample_names[[1]])
 
@@ -884,21 +928,23 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
         # soon be deprecated in tibbles
         samples <- as.data.frame(ds$annot.samples)
 
-        # set the rownames so scan1 will work, finding a match to some
-        # variation of mOuSE.Id
+        # get the sample id field
+        sample_id_field <- get_sample_id_field(dataset)
+
+        # set the rownames so scan1 will work
         rownames(samples) <-
-            (samples %>% select(matches("^mouse\\.id$")))[[1]]
+            (samples %>% select(matches(sample_id_field)))[[1]]
 
         # loop through the unique values for the interactive.covar
         for (u in covar.unique) {
             # sample_names will contain ONLY the samples that match x
             # take all samples
             # filter rows by value, i.e. sex = "F
-            # select just need the mouse.id column
+            # select just need the sample id field column
             sample_names <-
                 samples %>%
                 filter(UQ(as.name(intcovar)) == u) %>%
-                select(matches("^mouse\\.id$"))
+                select(matches(sample_id_field))
 
             sample_names <- c(sample_names[[1]])
 
@@ -987,22 +1033,25 @@ get_expression <- function(dataset, id) {
         }
     }
 
-    # make sure 'mouse.id' is lowercase when passed back and only pass back the
+    # get the sample id field
+    sample_id_field <- get_sample_id_field(dataset)
+    
+    # make sure 'sample.id' is lowercase when passed back and only pass back the
     # columns we need
     samples <- ds$annot.samples %>%
-        rename(mouse.id = matches("^mouse\\.id$")) %>%
-        select(c("mouse.id", names(datatypes)))
+        rename(sample.id = sample_id_field) %>%
+        select(c("sample.id", names(datatypes)))
 
     # bind the data
     expression_temp <- tibble(
-        mouse.id = rownames(data),
+        sample.id  = rownames(data),
         expression = data[, idx]
     )
     
     output <- samples %>%
         inner_join(
             expression_temp,
-            by = c("mouse.id" = "mouse.id")
+            by = c("sample.id" = "sample.id")
         )
 
     list(
@@ -1725,11 +1774,13 @@ get_correlation_plot_data <- function(dataset, id,
         x <- data[, idx]
         y <- data_correlate[, idx_correlate]
     }
+    
+    # get the sample id field
+    sample_id_field <- get_sample_id_field(dataset)
 
     # get the intersecting samples and indices
-    id_column <- match("mouse.id", tolower(colnames(ds$annot.samples)))
     samples <- intersect(rownames(data), rownames(data_correlate))
-    samples_idx <- which(ds$annot.samples[[id_column]] %in% samples)
+    samples_idx <- which(ds$annot.samples[[sample_id_field]] %in% samples)
 
     # get the covar factors and their data levels
     sample_info <- list()
@@ -1749,7 +1800,7 @@ get_correlation_plot_data <- function(dataset, id,
 
     correlation_plot_data <-
         as_tibble(data.frame(
-            mouse.id = rownames(data),
+            sample.id = rownames(data),
             x = x,
             y = y,
             sample_info,
@@ -1762,7 +1813,7 @@ get_correlation_plot_data <- function(dataset, id,
         dataset.correlate = nvl(dataset_correlate, dataset),
         id.correlate      = id_correlate,
         datatypes         = dt,
-        data              = correlation_plot_data
+        data              = correlation_plot_data,
     )
 }
 
