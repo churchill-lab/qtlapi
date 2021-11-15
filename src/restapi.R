@@ -163,8 +163,7 @@ http_get_rankings <- function(request, response) {
         
         elapsed <- proc.time() - ptm
         
-        data <- list(id     = dataset,
-                     result = rankings,
+        data <- list(result = rankings,
                      time   = elapsed["elapsed"])
         
         logger$info(paste0("http_get_rankings|", elapsed["elapsed"]))
@@ -462,11 +461,11 @@ http_get_lod_peaks <- function(request, response) {
       
         dataset <- request$parameters_query[["dataset"]]
         expand <- to_boolean(request$parameters_query[["expand"]])
-      
+
         # get the LOD peaks for each covarint
-        peaks <- get_lod_peaks(dataset)
+        peaks <- get_lod_peaks_all(dataset)
       
-        if (expand) {
+        if (!expand) {
             # by converting to data.frame and setting column names to NULL, 
             # when converted to JSON, the result will be a 2 dimensional array
             for (n in names(peaks)) {
