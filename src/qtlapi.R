@@ -38,6 +38,54 @@ library(gtools)
 # #############################################################################
 
 
+#' Fix the environment.
+fix_environment <- function(suffix = NULL) {
+    message("Fixing the enviroment")
+    
+    datasets <- grep("^dataset*", apropos("dataset\\."), value = TRUE)
+
+    for (dataset_id in datasets) {
+        ds <- get(dataset_id)
+        
+        # fix annotations
+        if (tolower(ds$datatype) == "mrna") {
+            ds$annot.mrna %<>% 
+                rename(
+                    gene_id           = matches("gene.id|gene_id"),
+                    nearest_marker_id = 
+                        matches("nearest.marker.id|nearest_marker_id")
+                )
+        } else if (tolower(ds$datatype) == "protein") {
+            ds$annot.protein %<>% 
+                rename(
+                    gene_id           = matches("gene.id|gene_id"),
+                    protein_id        = matches("protein.id|protein_id"),
+                    nearest_marker_id = 
+                        matches("nearest.marker.id|nearest_marker_id")
+                )
+        } else {
+            ds$annot.phenotype %<>% janitor::clean_names()
+        }
+        
+        for (peak in names(ds$lod.peaks)) {
+            ds$lod.peaks[[peak]] %<>% janitor::clean_names()
+        }
+        
+        # fix samples
+        # ds$annot.samples %<>% janitor::clean_names()
+        
+        # fix covar.info
+        ds$covar.info %<>% janitor::clean_names()
+        
+        if (!gtools::invalid(suffix)) {
+            dataset_id <- paste0(dataset_id, suffix)
+        }
+        
+        assign(dataset_id, ds, envir = .GlobalEnv)
+    }
+}
+
+
 # set a variable called debug_mode to TRUE for step 1 above.
 
 if (exists("debug_mode")) {
@@ -48,6 +96,7 @@ if (exists("debug_mode")) {
 
 if (debug_mode) {
     message("DEBUG MODE: Make sure the data is loaded and db_file is defined")
+    message("DEBUG MODE: Make sure to run fix_environment")
 } else {
     message("Finding the data file to load...")
     data_files <- list.files(
@@ -81,6 +130,8 @@ if (debug_mode) {
     }
 
     message("Using SNP db file:", db_file)
+    
+    fix_environment()
 }
 
 
@@ -147,23 +198,44 @@ nvl_int <- function(value, default) {
 # #############################################################################
 
 
-#' Get the dataset by id (a string)
+#' Get the dataset by id (a string).  annot.samples can be used at the top level
+#' to share sample annotations amongst datasets.
 #'
 #' @param ds A string, either 'dataset.name' or just 'name'.
 #'
 #' @return The dataset element.
 #'
 get_dataset <- function(ds) {
+    dataset <- NULL
+    
     if (exists(ds)) {
-        return(get(ds))
+        dataset <- get(ds)
     } else {
         expanded <- sprintf("dataset.%s", ds)
         if (exists(expanded)) {
-            return(get(expanded))
+            dataset <- get(expanded)
         }
     }
-
-    stop(sprintf("'%s' does not exist", ds))
+    
+    if (gtools::invalid(dataset)) {
+        stop(sprintf("'%s' does not exist", ds))
+    }
+    
+    samples <- NULL
+    
+    if (exists('annot.samples', dataset)) {
+        samples <- dataset$annot.samples
+    } else if (exists('annot.samples')) {
+        samples <- annot.samples
+    }
+    
+    if (gtools::invalid(samples)) {
+        stop(stop("Unable to find annot.samples"))
+    }
+    
+    dataset$annot.samples <- samples
+    
+    return(dataset)
 }
 
 #' Check dataset to see if the datatype value is "phenotype"
@@ -186,6 +258,7 @@ is_phenotype <- function(dataset) {
 
     FALSE
 }
+
 
 #' Synchronize sample IDs between objects.
 #'
@@ -311,16 +384,16 @@ get_sample_id_field <- function(dataset) {
     
     if (is_phenotype(ds)) {
         # find the id field of the samples
-        id_field <- ds$annot.pheno %>% filter(is.id == TRUE)
+        id_field <- ds$annot.phenotype %>% filter(is_id == TRUE)
         
         if (NROW(id_field) != 1) {
             stop(sprintf(
-                "is.id == TRUE more than once in '%s'$annot.phenotype",
+                "is_id == TRUE more than once in '%s'$annot.phenotype",
                 ds
             ))
         }
         
-        id_field <- id_field$data.name
+        id_field <- id_field$data_name
     } else {
         regex_str <- "^mouse\\.?id$|^sample\\.id$"
         
@@ -358,16 +431,16 @@ get_covar_matrix <- function(dataset, id = NULL) {
         if (is_phenotype(ds)) {
             # get the annot.pheno row to get use.covar variable from the 
             # annotations
-            pheno <- ds$annot.pheno %>% filter(data.name == id)
+            pheno <- ds$annot.pheno %>% filter(data_name == id)
 
             if (gtools::invalid(pheno)) {
                 stop(sprintf("Cannot find phenotype '%s' in '%s'", id, dataset))
             }
             
             # create a string (model formula) from the use.covar column
-            formula_str <- paste0("~", gsub(":", "+", pheno$use.covar))
+            formula_str <- paste0("~", gsub(":", "+", pheno$use_covar))
         } else {
-            formula_str <- paste0(ds$covar.info$sample.column, collapse="+")
+            formula_str <- paste0(ds$covar.info$sample_column, collapse="+")
             formula_str <- paste0("~", formula_str)
         }
 
@@ -417,13 +490,13 @@ get_dataset_info <- function() {
         ds <- get(dataset_id)
 
         if (tolower(ds$datatype) == "mrna") {
-            annotations <- list(ids = ds$annot.mrna$gene.id)
+            annotations <- list(ids = ds$annot.mrna$gene_id)
         } else if (tolower(ds$datatype) == "protein") {
             annotations <-
                 list(
                     ids = tibble(
-                        protein.id = ds$annot.protein$protein.id,
-                        gene.id = ds$annot.protein$gene.id
+                        protein_id = ds$annot.protein$protein_id,
+                        gene_id = ds$annot.protein$gene_id
                     )
                 )
         } else if (is_phenotype(ds)) {
@@ -434,10 +507,10 @@ get_dataset_info <- function() {
         temp <- list(
             id              = dataset_id,
             annotations     = annotations,
-            display.name    = nvl(ds$display.name, dataset_id),
+            display_name    = nvl(ds$display.name, dataset_id),
             datatype        = ds$datatype,
-            ensembl.version = nvl(ds$ensembl.version, ensembl.version),
-            covar.info      = ds$covar.info
+            ensembl_version = nvl(ds$ensembl.version, ensembl.version),
+            covar_info      = ds$covar.info
         )
 
         ret <- c(ret, list(temp))
@@ -477,11 +550,11 @@ get_dataset_stats <- function() {
 
         temp <- list(
             id              = dataset_id,
-            display.name    = nvl(ds$display.name, dataset_id),
+            display_name    = nvl(ds$display.name, dataset_id),
             datatype        = ds$datatype,
-            ensembl.version = nvl(ds$ensembl.version, ensembl.version),
-            num.annotations = num.annotations,
-            num.samples     = NROW(ds$annot.samples)
+            ensembl_version = nvl(ds$ensembl.version, ensembl.version),
+            num_annotations = num.annotations,
+            num_samples     = NROW(ds$annot.samples)
         )
 
         ret <- c(ret, list(temp))
@@ -544,7 +617,7 @@ get_rankings <- function(dataset, chrom = NULL,
     if (tolower(ds$datatype) == "mrna") {
         if (!is.null(chrom)) {
             # filter the data to just return the chromosome asked for
-            gene_ids <- ds$annot.mrna[ds$annot.mrna$chr == chrom, ]$gene.id
+            gene_ids <- ds$annot.mrna[ds$annot.mrna$chr == chrom, ]$gene_id
             tmp <- tmp[gene_ids]
         }
 
@@ -563,7 +636,7 @@ get_rankings <- function(dataset, chrom = NULL,
         if (!is.null(chrom)) {
             # filter the data to just return the chromosome asked for
             protein_ids <-
-                ds$annot.protein[ds$annot.protein$chr == chrom, ]$protein.id
+                ds$annot.protein[ds$annot.protein$chr == chrom, ]$protein_id
             tmp <- tmp[protein_ids]
         }
 
@@ -572,7 +645,7 @@ get_rankings <- function(dataset, chrom = NULL,
             ranking = as.integer(tmp)
         ) 
         
-        # group by gene_id snd than take the gene_id ranking value
+        # group by gene_id and than take the gene_id ranking value
         ret <- ret %>%
             inner_join(
                 ds$annot.protein, 
@@ -580,7 +653,7 @@ get_rankings <- function(dataset, chrom = NULL,
             ) %>%
             select(
                 protein_id = id, 
-                gene_id = gene.id, 
+                gene_id = gene_id, 
                 ranking
             ) %>%
             group_by(gene_id) %>%
@@ -637,7 +710,7 @@ get_lod_scan <- function(dataset, id, intcovar = NULL, cores = 0,
     if (gtools::invalid(intcovar)) {
         interactive_covariate <- NULL
     } else {
-        if (intcovar %not in% ds$covar.info$sample.column) {
+        if (intcovar %not in% ds$covar.info$sample_column) {
             stop(sprintf(
                 "intcovar '%s' not found in %s$covar.info",
                 intcovar,
@@ -757,7 +830,7 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
     # make sure nCores is appropriate
     num_cores <- nvl_int(cores, 0)
 
-    if (intcovar %not in% ds$covar.info$sample.column) {
+    if (intcovar %not in% ds$covar.info$sample_column) {
         stop(sprintf(
             "covar '%s' not found in %s$covar.info",
             intcovar, dataset
@@ -800,7 +873,7 @@ get_lod_scan_by_sample <- function(dataset, id, intcovar, chrom, cores = 0) {
         sample_names <- c(sample_names[[1]])
 
         # get the covar data
-        covar <- get_covar_matrix(get_covar_matrix, id)
+        covar <- get_covar_matrix(dataset, id)
         
         # filter by the samples we need
         covar <- ds$covar.matrix[sample_names, , drop = FALSE]
@@ -871,7 +944,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
     num_cores <- nvl_int(cores, 0)
 
     # get the covar data
-    covar <- get_covar_matrix(get_covar_matrix, id)
+    covar <- get_covar_matrix(dataset, id)
 
     ret <- list()
 
@@ -894,7 +967,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
         }
 
         if (center) {
-            a2h <- LETTERS[1:8]
+            a2h <- tolower(LETTERS[1:8])
             temp[, a2h] <- temp[, a2h] - rowMeans(temp[, a2h], na.rm = TRUE)
         }
 
@@ -904,10 +977,10 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                 markers,
                 by = "marker.id"
             ) %>%
-            select(id = marker.id, chr, pos, LETTERS[1:8]) %>%
+            select(id = marker.id, chr, pos, tolower(LETTERS[1:8])) %>%
             mutate_at(vars(-c("id", "chr", "pos")), as.numeric)
     } else {
-        if (intcovar %not in% ds$covar.info$sample.column) {
+        if (intcovar %not in% ds$covar.info$sample_column) {
             stop(sprintf(
                 "covar '%s' not found in %s$covar.info",
                 intcovar, dataset
@@ -973,7 +1046,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
             }
 
             if (center) {
-                a2h <- LETTERS[1:8]
+                a2h <- tolower(LETTERS[1:8])
                 temp[, a2h] <- temp[, a2h] - rowMeans(temp[, a2h], na.rm = TRUE)
             }
 
@@ -987,7 +1060,7 @@ get_founder_coefficients <- function(dataset, id, intcovar, chrom,
                     id = marker.id, 
                     chr, 
                     pos, 
-                    LETTERS[1:8]
+                    tolower(LETTERS[1:8])
                 ) %>%
                 mutate_at(
                     vars(-c("id", "chr", "pos")),
@@ -1023,7 +1096,7 @@ get_expression <- function(dataset, id) {
         datatypes <- NULL
     } else {
         datatypes <- list()
-        for (i in ds$covar.info$sample.column) {
+        for (i in ds$covar.info$sample_column) {
             stopifnot(!is.null(ds$annot.samples[[i]]))
             if (is.factor(ds$annot.samples[[i]])) {
                 datatypes[[i]] <- mixedsort(levels(ds$annot.samples[[i]]))
@@ -1035,23 +1108,22 @@ get_expression <- function(dataset, id) {
 
     # get the sample id field
     sample_id_field <- get_sample_id_field(dataset)
-    
-    # make sure 'sample.id' is lowercase when passed back and only pass back the
-    # columns we need
+
+    # only pass back the columns we need
     samples <- ds$annot.samples %>%
-        rename(sample.id = sample_id_field) %>%
-        select(c("sample.id", names(datatypes)))
+        rename(sample_id = sample_id_field) %>%
+        select(c(sample_id, names(datatypes)))
 
     # bind the data
     expression_temp <- tibble(
-        sample.id  = rownames(data),
+        sample_id  = rownames(data),
         expression = data[, idx]
     )
     
     output <- samples %>%
         inner_join(
             expression_temp,
-            by = c("sample.id" = "sample.id")
+            by = c("sample_id" = "sample_id")
         )
 
     list(
@@ -1105,11 +1177,11 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
             inner_join(
                 enframe(colnames(data_mediate), name = NULL),
                 ds_mediate$annot.mrna,
-                by = c("value" = "gene.id")
+                by = c("value" = "gene_id")
             ) %>%
             mutate(middle_point = (start + end) / 2) %>%
             select(
-                gene.id = value, 
+                gene_id = value, 
                 symbol, 
                 chr, 
                 middle_point
@@ -1120,12 +1192,12 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
             inner_join(
                 enframe(colnames(data_mediate), name = NULL),
                 ds_mediate$annot.protein,
-                by = c("value" = "protein.id")
+                by = c("value" = "protein_id")
             ) %>%
             mutate(middle_point = (start + end) / 2) %>%
             select(
-                protein.id = value, 
-                gene.id, 
+                protein_id = value, 
+                gene_id, 
                 symbol, 
                 chr, 
                 middle_point)
@@ -1154,7 +1226,7 @@ get_mediation <- function(dataset, id, marker_id, intcovar,
         mediator = data_mediate,
         annotation = annot,
         covar = covar,
-        qtl.geno = filtered_genoprobs,
+        qtl_geno = filtered_genoprobs,
         verbose = FALSE
     )
 }
@@ -1245,7 +1317,7 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
     window_snps <- index_snps(map = map, window_snps)
 
     # get the covar data
-    covar <- get_covar_matrix(get_covar_matrix, id)
+    covar <- get_covar_matrix(dataset, id)
 
     # convert allele probs to SNP probs
     snp_prob <- genoprob_to_snpprob(genoprobs, window_snps)
@@ -1272,7 +1344,7 @@ get_snp_assoc_mapping <- function(dataset, id, intcovar, chrom, location,
     interactive_covariate <- NULL
 
     if (!gtools::invalid(intcovar)) {
-        if (intcovar %not in% ds$covar.info$sample.column) {
+        if (intcovar %not in% ds$covar.info$sample_column) {
             stop(sprintf(
                 "covar '%s' not found in %s$covar.info",
                 intcovar, dataset
@@ -1327,9 +1399,9 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
         peaks <- ds$lod.peaks$additive
     } else {
         # find the covar and get the name of the lod peaks
-        if (intcovar %in% ds$covar.info$sample.column) {
-            n <- ds$covar.info[ds$covar.info$sample.column == intcovar, ]
-            peaks <- ds$lod.peaks[[n$lod.peaks]]
+        if (intcovar %in% ds$covar.info$sample_column) {
+            n <- ds$covar.info[ds$covar.info$sample_column == intcovar, ]
+            peaks <- ds$lod.peaks[[n$lod_peaks]]
         } else {
             stop(sprintf(
                 "covar '%s' not found in %s$covar.info",
@@ -1349,32 +1421,32 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
         ret <- ds$annot.mrna %>%
             inner_join(
                 peaks, 
-                by = "gene.id"
+                by = "gene_id"
             ) %>%
             select(
-                gene.id, 
+                gene_id, 
                 symbol, 
-                gene.chr = chr, 
+                gene_chr = chr, 
                 start, 
                 end, 
-                marker.id, 
+                marker_id, 
                 lod
             ) %>%
             mutate(
-                gene.pos = (start + end) / 2.0
+                gene_pos = (start + end) / 2.0
             ) %>%
             inner_join(
                 markers, 
-                by = "marker.id"
+                by = c("marker_id" = "marker.id")
             ) %>%
             select(
-                marker.id, 
+                marker_id, 
                 chr, 
                 pos, 
-                gene.id, 
+                gene_id, 
                 symbol, 
-                gene.chr, 
-                gene.pos, 
+                gene_chr, 
+                gene_pos, 
                 lod
             ) %>%
             arrange(
@@ -1383,42 +1455,42 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
             )
 
         # now add A-H for additive if they exist
-        if (all(LETTERS[1:8] %in% colnames(peaks))) {
+        if (all(tolower(LETTERS[1:8]) %in% colnames(peaks))) {
             ret <- ret %>%
-                inner_join(peaks, by = c("gene.id", "marker.id", "lod"))
+                inner_join(peaks, by = c("gene_id", "marker_id", "lod"))
         }
     } else if (tolower(ds$datatype) == "protein") {
         ret <- ds$annot.protein %>%
             inner_join(
                 peaks, 
-                by = "protein.id"
+                by = "protein_id"
             ) %>%
             select(
-                protein.id, 
-                gene.id, 
+                protein_id, 
+                gene_id, 
                 symbol, 
-                gene.chr = chr,
+                gene_chr = chr,
                 start, 
                 end, 
-                marker.id, 
+                marker_id, 
                 lod
             ) %>%
             mutate(
-                gene.pos = (start + end) / 2.0
+                gene_pos = (start + end) / 2.0
             ) %>%
             inner_join(
                 markers, 
-                by = "marker.id"
+                by = c("marker_id" = "marker.id")
             ) %>%
             select(
-                marker.id, 
+                marker_id, 
                 chr, 
                 pos, 
-                protein.id, 
-                gene.id, 
+                protein_id, 
+                gene_id, 
                 symbol, 
-                gene.chr, 
-                gene.pos, 
+                gene_chr, 
+                gene_pos, 
                 lod
             ) %>%
             arrange(
@@ -1427,32 +1499,33 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
             )
 
         # now add A-H for additive if they exist
-        if (all(LETTERS[1:8] %in% colnames(peaks))) {
+        if (all(tolower(LETTERS[1:8]) %in% colnames(peaks))) {
             ret <- ret %>%
-                inner_join(peaks, by = c("protein.id", "marker.id", "lod"))
+                inner_join(peaks, by = c("protein_id", "marker_id", "lod"))
         }
     } else if (is_phenotype(ds)) {
         ret <- ds$annot.phenotype %>%
             inner_join(
-                peaks, by = "data.name"
+                peaks, 
+                by = "data_name"
             ) %>%
             select(
-                data.name, 
-                short.name, 
+                data_name, 
+                short_name, 
                 description,
-                marker.id, 
+                marker_id, 
                 lod
             ) %>%
             inner_join(
                 markers, 
-                by = "marker.id"
+                by = c("marker_id" = "marker.id")
             ) %>%
             select(
-                marker.id, 
+                marker_id, 
                 chr, 
                 pos, 
-                data.name, 
-                short.name, 
+                data_name, 
+                short_name, 
                 description,
                 lod
             ) %>%
@@ -1462,9 +1535,9 @@ get_lod_peaks <- function(dataset, intcovar = NULL) {
             )
 
         # now add A-H for additive if they exist
-        if (all(LETTERS[1:8] %in% colnames(peaks))) {
+        if (all(tolower(LETTERS[1:8]) %in% colnames(peaks))) {
             ret <- ret %>%
-                inner_join(peaks, by = c("data.name", "marker.id", "lod"))
+                inner_join(peaks, by = c("data_name", "marker_id", "lod"))
         }
     } else {
         stop(sprintf("'%s' has an invalid datatype '%s'", ds, ds$datatype))
@@ -1495,8 +1568,8 @@ get_lod_peaks_all <- function(dataset) {
         inf <- ds$covar.info[i, ]
 
         if (inf$interactive) {
-            peaks[[inf$sample.column]] <-
-                get_lod_peaks(dataset, inf$sample.column)
+            peaks[[inf$sample_column]] <-
+                get_lod_peaks(dataset, inf$sample_column)
         }
     }
 
@@ -1665,7 +1738,7 @@ get_correlation <- function(dataset, id,
 
     if (tolower(ds_correlate$datatype) == "mrna") {
         # get the indices into the annotype data
-        idxs <- match(names(pcor), ds_correlate$annot.mrna$gene.id)
+        idxs <- match(names(pcor), ds_correlate$annot.mrna$gene_id)
 
         ret <- tibble(
             cor    = pcor,
@@ -1677,12 +1750,12 @@ get_correlation <- function(dataset, id,
         )
     } else if (tolower(ds_correlate$datatype) == "protein") {
         # get the indices into the annotype data
-        idxs <- match(names(pcor), ds_correlate$annot.protein$protein.id)
+        idxs <- match(names(pcor), ds_correlate$annot.protein$protein_id)
 
         ret <- tibble(
             cor     = pcor,
             id      = names(pcor),
-            gene_id = ds_correlate$annot.protein$gene.id[idxs],
+            gene_id = ds_correlate$annot.protein$gene_id[idxs],
             symbol  = ds_correlate$annot.protein$symbol[idxs],
             chr     = ds_correlate$annot.protein$chr[idxs],
             start   = ds_correlate$annot.protein$start[idxs],
@@ -1785,7 +1858,7 @@ get_correlation_plot_data <- function(dataset, id,
     # get the covar factors and their data levels
     sample_info <- list()
     dt <- list()
-    for (s in ds$covar.info$sample.column) {
+    for (s in ds$covar.info$sample_column) {
         stopifnot(!is.null(ds$annot.samples[[s]]))
         sample_info[[toString(s)]] <- ds$annot.samples[samples_idx, ][[s]]
 
@@ -1800,7 +1873,7 @@ get_correlation_plot_data <- function(dataset, id,
 
     correlation_plot_data <-
         as_tibble(data.frame(
-            sample.id = rownames(data),
+            sample_id = rownames(data),
             x = x,
             y = y,
             sample_info,
@@ -1811,16 +1884,10 @@ get_correlation_plot_data <- function(dataset, id,
         dataset           = dataset,
         id                = id,
         dataset.correlate = nvl(dataset_correlate, dataset),
-        id.correlate      = id_correlate,
+        id_correlate      = id_correlate,
         datatypes         = dt,
-        data              = correlation_plot_data,
+        data              = correlation_plot_data
     )
 }
-
-
-#is.pheno must be numerical
-#is.covar must be in annot.samples
-#is.factor -> annot.samples as factor
-#variates vs covariates
 
 

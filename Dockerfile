@@ -12,9 +12,10 @@ RUN apt-get update && \
 RUN R -e 'remotes::install_version("missMDA", version = "1.18")' \
  && R -e 'remotes::install_version("dbplyr", version = "2.1.1")' \
  && R -e 'remotes::install_version("pryr", version = "0.1.5")' \
+ && R -e 'remotes::install_version("janitor", version = "2.1.0")' \
  && R -e 'remotes::install_version("RSQLite", version = "2.2.7")' \
  && R -e 'remotes::install_version("gtools", version = "3.9.2")' \
- && R -e 'remotes::install_version("qtl2", version="0.24")'
+ && R -e 'remotes::install_version("qtl2", version="0.28")'
  
 # install intermediate
 RUN R -e 'remotes::install_github("churchill-lab/intermediate@v.2.5")'

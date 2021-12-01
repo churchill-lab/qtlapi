@@ -73,28 +73,30 @@ get_covar_matrix <- function(dataset, id = NULL) {
         if (is_phenotype(ds)) {
             # get the annot.pheno row to get use.covar variable from the 
             # annotations
-            pheno <- ds$annot.pheno %>% filter(data.name == id)
+            pheno <- ds$annot.pheno %>% filter(data_name == id)
 
             if (gtools::invalid(pheno)) {
                 stop(sprintf("Cannot find phenotype '%s' in '%s'", id, dataset))
             }
             
             # create a string (model formula) from the use.covar column
-            formula_str <- paste0("~", gsub(":", "+", pheno$use.covar))
+            formula_str <- paste0("~", gsub(":", "+", pheno$use_covar))
         } else {
-            formula_str <- paste0(ds$covar.info$sample.column, collapse="+")
+            formula_str <- paste0(ds$covar.info$sample_column, collapse="+")
             formula_str <- paste0("~", formula_str)
         }
 
+        # get the sample id field
+        sample_id_field <- get_sample_id_field(dataset)
+        
         # convert samples to data.frame because QTL2 relies heavily
         # on rownames and colnames, rownames currently are or will
         # soon be deprecated in tibbles
         samples <- as.data.frame(ds$annot.samples)
 
-        # set the rownames so scan1 will work, finding a match to some
-        # variation of mOuSE.Id
+        # set the rownames so scan1 will work
         rownames(samples) <-
-            (samples %>% select(matches("^mouse\\.id$")))[[1]]
+            (samples %>% select(matches(sample_id_field)))[[1]]
 
         # [, -1, drop = FALSE] will drop the (Intercept) column
         covar <- model.matrix.lm(
@@ -187,66 +189,66 @@ check_dataset <- function(d) {
             message(paste0("annot.phenotype should be a tibble, but found ", class(ds$annot.phenotype)))
         }
         
-        if (any(duplicated(ds$annot.phenotype$data.name))) {
-            message("There are duplicated data.name annotations in annot.phenotype")
+        if (any(duplicated(ds$annot.phenotype$data_name))) {
+            message("There are duplicated data_name annotations in annot.phenotype")
         }
     }
     
     if (is.phenotype) {
-        if ('data.name' %not in% names(ds$annot.phenotype)) {
-            message('data.name not found in annot.phenotype')
+        if ('data_name' %not in% names(ds$annot.phenotype)) {
+            message('data_name not found in annot.phenotype')
         } 
-        if ('short.name' %not in% names(ds$annot.phenotype)) {
-            message('short.name not found in annot.phenotype')
+        if ('short_name' %not in% names(ds$annot.phenotype)) {
+            message('short_name not found in annot.phenotype')
         } 
         if ('description' %not in% names(ds$annot.phenotype)) {
             message('description not found in annot.phenotype')
         } 
-        if ('units' %not in% names(ds$annot.phenotype)) {
-            message('units not found in annot.phenotype')
-        } 
-        if ('is.id' %not in% names(ds$annot.phenotype)) {
-            message('is.id not found in annot.phenotype')
+        #if ('units' %not in% names(ds$annot.phenotype)) {
+        #    message('units not found in annot.phenotype')
+        #} 
+        if ('is_id' %not in% names(ds$annot.phenotype)) {
+            message('is_id not found in annot.phenotype')
         } 
         if ('category' %not in% names(ds$annot.phenotype)) {
             message('category not found in annot.phenotype')
         }
-        if ('R.category' %not in% names(ds$annot.phenotype)) {
-            message('R.category not found in annot.phenotype')
+        #if ('R_category' %not in% names(ds$annot.phenotype)) {
+        #    message('R_category not found in annot.phenotype')
+        #}
+        if ('is_numeric' %not in% names(ds$annot.phenotype)) {
+            message('is_numeric not found in annot.phenotype')
         }
-        if ('is.numeric' %not in% names(ds$annot.phenotype)) {
-            message('is.numeric not found in annot.phenotype')
+        if ('is_date' %not in% names(ds$annot.phenotype)) {
+            message('is_date not found in annot.phenotype')
         }
-        if ('is.date' %not in% names(ds$annot.phenotype)) {
-            message('is.date not found in annot.phenotype')
+        if ('is_factor' %not in% names(ds$annot.phenotype)) {
+            message('is_factor not found in annot.phenotype')
         }
-        if ('is.factor' %not in% names(ds$annot.phenotype)) {
-            message('is.factor not found in annot.phenotype')
+        if ('factor_levels' %not in% names(ds$annot.phenotype)) {
+            message('factor_levels not found in annot.phenotype')
         }
-        if ('factor.levels' %not in% names(ds$annot.phenotype)) {
-            message('factor.levels not found in annot.phenotype')
-        }
-        if ('is.covar' %not in% names(ds$annot.phenotype)) {
-            message('is.covar not found in annot.phenotype')
-        }
-        if ('is.pheno' %not in% names(ds$annot.phenotype)) {
-            message('is.pheno not found in annot.phenotype')
+        #if ('is_covar' %not in% names(ds$annot.phenotype)) {
+        #    message('is_covar not found in annot.phenotype')
+        #}
+        if ('is_pheno' %not in% names(ds$annot.phenotype)) {
+            message('is_pheno not found in annot.phenotype')
         } 
-        if ('is.derived' %not in% names(ds$annot.phenotype)) {
-            message('is.derived not found in annot.phenotype')
-        }
+        #if ('is_derived' %not in% names(ds$annot.phenotype)) {
+        #    message('is_derived not found in annot.phenotype')
+        #}
         if ('omit' %not in% names(ds$annot.phenotype)) {
             message('omit not found in annot.phenotype')
         } 
-        if ('use.covar' %not in% names(ds$annot.phenotype)) {
-            message('use.covar not found in annot.phenotype')
+        if ('use_covar' %not in% names(ds$annot.phenotype)) {
+            message('use_covar not found in annot.phenotype')
         }
         
         # one and only 1 ID
-        a.id <- ds$annot.phenotype[which(ds$annot.phenotype$is.id == TRUE),]$data.name
+        theID <- ds$annot.phenotype[which(ds$annot.phenotype$is_id == TRUE),]$data_name
         
-        if(length(a.id) != 1) {
-            message('annot.phenotype$is.id should have 1 and only 1 row set to TRUE')
+        if(length(theID) != 1) {
+            message('annot.phenotype$is_id should have 1 and only 1 row set to TRUE')
         }
     } else {
         annot <- NULL
@@ -306,13 +308,13 @@ check_dataset <- function(d) {
         message(paste0("annot.samples should be a tibble, but found ", class(ds$annot.sample)))
     }
     
-    id.column <- match('mouse.id', tolower(colnames(ds$annot.samples)))
-    if (gtools::invalid(id.column)) {
-        message('mouse.id not found in annot.samples')
+    sample_id_column <- get_sample_id_field(d)
+    if (gtools::invalid(sample_id_column)) {
+        message('mouse.id/sample.id not found in annot.samples')
     }
     
-    if (any(duplicated(ds$annot.sample$mouse.id))) {
-        message("There are duplicated mouse.id annotations in annot.samples")
+    if (any(duplicated(ds$annot.sample[sample_id_column]))) {
+        message("There are duplicated mouse.id/sample.id annotations in annot.samples")
     }
     
     ###########################################################################
@@ -330,41 +332,41 @@ check_dataset <- function(d) {
         message(paste0("covar.info should be a tibble, but found '", class(ds$covar.info), "'"))
     }
     
-    if ('sample.column' %not in% names(ds$covar.info)) {
-        message('sample.column not found in covar.info')
-    } else if ('display.name' %not in% names(ds$covar.info)) {
-        message('display.name not found in covar.info')
+    if ('sample_column' %not in% names(ds$covar.info)) {
+        message('sample_column not found in covar.info')
+    } else if ('display_name' %not in% names(ds$covar.info)) {
+        message('display_name not found in covar.info')
     } else if ('interactive' %not in% names(ds$covar.info)) {
         message('interactive not found in covar.info')
     } else if ('primary' %not in% names(ds$covar.info)) {
         message('primary not found in covar.info')
-    } else if ('lod.peaks' %not in% names(ds$covar.info)) {
-        message('lod.peaks not found in covar.info')
+    } else if ('lod_peaks' %not in% names(ds$covar.info)) {
+        message('lod_peaks not found in covar.info')
     }
     
     for(i in 1:nrow(ds$covar.info)) {
         row <- ds$covar.info[i, ]
         
-        if (row$sample.column %not in% colnames(ds$annot.samples)) {
-            message(paste0("covar.info$sample.column ('", row$sample.column, "') is not a column name in annot.samples"))
+        if (row$sample_column %not in% colnames(ds$annot.samples)) {
+            message(paste0("covar.info$sample_column ('", row$sample_column, "') is not a column name in annot.samples"))
         }
         
-        if (gtools::invalid(row$display.name)) {
-            message("covar.info$display.name needs to have a value")
+        if (gtools::invalid(row$display_name)) {
+            message("covar.info$display_name needs to have a value")
         }
         
         if (row$interactive) {
-            if (gtools::invalid(row$lod.peaks)) {
-                message("covar.info$interactive is TRUE, but covar.info$lod.peaks is NA")
+            if (gtools::invalid(row$lod_peaks)) {
+                message("covar.info$interactive is TRUE, but covar.info$lod_peaks is NA")
             } else {
-                # check for existence of lod.peaks
-                if (gtools::invalid(ds$lod.peaks[[row$lod.peaks]])) {
-                    message(paste0("covar.info$interactive is TRUE, but covar.info$lod.peaks ('", row$lod.peaks, "') is not in lod.peaks"))
+                # check for existence of lod_peaks
+                if (gtools::invalid(ds$lod.peaks[[row$lod_peaks]])) {
+                    message(paste0("covar.info$interactive is TRUE, but covar.info$lod_peaks ('", row$lod_peaks, "') is not in lod.peaks"))
                 }
             }
         } else {
-            if (!gtools::invalid(row$lod.peaks)) {
-                message(paste0("covar.info$interactive is FALSE, but covar.info$lod.peaks ('", row$lod.peaks, "') is set"))
+            if (!gtools::invalid(row$lod_peaks)) {
+                message(paste0("covar.info$interactive is FALSE, but covar.info$lod_peaks ('", row$lod_peaks, "') is set"))
             }
         }
     }
@@ -393,8 +395,8 @@ check_dataset <- function(d) {
     cat("Checking to see if we can generate covar.matrix\n")
     
     if (is_phenotype(ds)) {
-        phenos <- ds$annot.phenotype %>% filter(is.pheno == TRUE)
-        phenos <- phenos$data.name
+        phenos <- ds$annot.phenotype %>% filter(is_pheno == TRUE)
+        phenos <- phenos$data_name
         
         for (x in phenos) {
             tryCatch(
@@ -455,21 +457,21 @@ check_dataset <- function(d) {
     #
     for (lp in names(ds$lod.peaks)) {
         if (is.phenotype) {
-            if (length(setdiff(ds$lod.peaks[[lp]]$data.name, ds$annot.phenotype$data.name))) {
-                message(paste0('not all lod.peaks$data.name are in annot.phenotype$data.name'))
+            if (length(setdiff(ds$lod.peaks[[lp]]$data_name, ds$annot.phenotype$data_name))) {
+                message(paste0('not all lod.peaks["', lp, '"]$data_name are in annot.phenotype$data_name'))
             }
         } else if (is.protein) {
-            if (length(setdiff(ds$lod.peaks[[lp]]$protein.id, ds$annot.protein$protein.id))) {
-                message(paste0('not all lod.peaks$protein.id are in annot.protein$protein.id'))
+            if (length(setdiff(ds$lod.peaks[[lp]]$protein_id, ds$annot.protein$protein_id))) {
+                message(paste0('not all lod.peaks$protein_id are in annot.protein$protein_id'))
             }
         } else if (is.mrna) {
-            if (length(setdiff(ds$lod.peaks[[lp]]$gene.id, ds$annot.mrna$gene.id))) {
-                message(paste0('not all lod.peaks$gene.id are in annot.mrna$gene.id'))
+            if (length(setdiff(ds$lod.peaks[[lp]]$gene_id, ds$annot.mrna$gene_id))) {
+                message(paste0('not all lod.peaks$gene_id are in annot.mrna$gene_id'))
             }
         } 
         
-        if (length(setdiff(ds$lod.peaks[[lp]]$marker.id, markers$marker.id))) {
-            message(paste0('not all ', d, '$lod.peaks$marker.id are in markers'))
+        if (length(setdiff(ds$lod.peaks[[lp]]$marker_id, markers$marker.id))) {
+            message(paste0('not all ', d, '$lod.peaks$marker_id are in markers'))
         } 
     }
     
@@ -522,7 +524,7 @@ check_dataset <- function(d) {
             
             if (num_annot_samples != nrow(temp_data)) {
                 message(paste0('number of samples (', num_annot_samples, ') != ',
-                               'number of data rows (', nrow(temp_data), ')'))
+                               'number of data["', data_names[i], '"] rows (', nrow(temp_data), ')'))
             }
             rm(temp_data)
         }
